@@ -3,10 +3,11 @@ import { defineComponent } from 'vue'
 import { mapState } from 'pinia'
 import { useSerialStore } from '@/stores/serial'
 import { VisXYContainer, VisLine, VisAxis } from '@unovis/vue'
+import { CurveType } from '@unovis/ts'
 
 interface PlotDataPoint {
   timestamp: number
-  [key: string]: number
+  [key: string]: number | null
 }
 
 export default defineComponent({
@@ -16,28 +17,43 @@ export default defineComponent({
     VisLine,
     VisAxis
   },
+  data() {
+    return {
+      containerHeight: 400,
+      CurveType
+    }
+  },
+  mounted() {
+    this.updateHeight()
+    window.addEventListener('resize', this.updateHeight)
+  },
+  beforeUnmount() {
+    window.removeEventListener('resize', this.updateHeight)
+  },
   computed: {
     ...mapState(useSerialStore, ['plotData', 'timestamps']),
 
     /**
      * Transform plot data into format for Unovis
+     * Timestamps are normalized to elapsed seconds from the first data point
      */
     chartData(): PlotDataPoint[] {
       if (this.timestamps.length === 0) {
         return []
       }
 
-      // Create array of data points
+      const t0 = this.timestamps[0]
       const data: PlotDataPoint[] = []
 
       for (let i = 0; i < this.timestamps.length; i++) {
         const point: PlotDataPoint = {
-          timestamp: this.timestamps[i]
+          timestamp: (this.timestamps[i] - t0) / 1000  // Elapsed seconds
         }
 
-        // Add each data series value at this timestamp
+        // Add each data series value at this timestamp (preserving nulls)
         for (const key in this.plotData) {
-          point[key] = this.plotData[key][i] ?? 0
+          const value = this.plotData[key][i]
+          point[key] = value !== undefined ? value : null
         }
 
         data.push(point)
@@ -62,17 +78,33 @@ export default defineComponent({
   },
   methods: {
     /**
+     * Update container height based on available space
+     */
+    updateHeight(): void {
+      this.$nextTick(() => {
+        const container = this.$el?.querySelector('.chart-container') as HTMLElement
+        if (container) {
+          const availableHeight = container.clientHeight
+          this.containerHeight = Math.max(300, availableHeight - 20)
+        }
+      })
+    },
+
+    /**
      * Get color for data series (uses theme chart colors)
      */
     getSeriesColor(index: number): string {
-      const colors = [
-        'var(--chart-1)',
-        'var(--chart-2)',
-        'var(--chart-3)',
-        'var(--chart-4)',
-        'var(--chart-5)'
+      const ROYGBIV = [
+        '#00cc44', // Green
+        '#ff2200', // Red
+        '#0088ff', // Blue
+        '#ffee00', // Yellow
+        '#9900cc', // Violet
+        '#ff8800', // Orange
+        '#4400cc', // Indigo
+        '#ffffff'  // White
       ]
-      return colors[index % colors.length]
+      return ROYGBIV[index % ROYGBIV.length]
     },
 
     /**
@@ -85,7 +117,7 @@ export default defineComponent({
     /**
      * Create Y accessor for a specific data key
      */
-    createYAccessor(key: string): (d: PlotDataPoint) => number {
+    createYAccessor(key: string): (d: PlotDataPoint) => number | null {
       return (d: PlotDataPoint) => d[key]
     }
   }
@@ -99,10 +131,12 @@ export default defineComponent({
       <div v-if="!hasData" class="flex items-center justify-center h-full text-muted-foreground italic">
         No data to plot. Send numeric data in format: temp:25 or x:10,y:20,z:30
       </div>
-      <div v-else class="h-full">
+      <div v-else class="h-full chart-container">
         <VisXYContainer
           :data="chartData"
-          :height="400"
+          :height="containerHeight"
+          :margin="{ top: 20, right: 20, bottom: 60, left: 60 }"
+          :duration="0"
         >
           <VisLine
             v-for="(key, index) in dataKeys"
@@ -110,9 +144,22 @@ export default defineComponent({
             :x="x"
             :y="createYAccessor(key)"
             :color="getSeriesColor(index)"
+            :lineWidth="2"
+            :duration="0"
+            :curveType="CurveType.Linear"
           />
-          <VisAxis type="x" label="Time" />
-          <VisAxis type="y" label="Value" />
+          <VisAxis
+            type="x"
+            label="Elapsed time (s)"
+            :numTicks="6"
+            :gridLine="true"
+          />
+          <VisAxis
+            type="y"
+            label="Value"
+            :numTicks="8"
+            :gridLine="true"
+          />
         </VisXYContainer>
       </div>
     </div>
@@ -135,18 +182,41 @@ export default defineComponent({
 </template>
 
 <style scoped>
+/* Theme-aware chart styling */
 :deep(.unovis-xy-container) {
   --vis-color-main: var(--foreground);
   --vis-color-secondary: var(--muted-foreground);
   --vis-axis-grid-color: var(--border);
-  --vis-axis-tick-color: var(--border);
+  --vis-axis-tick-color: var(--muted-foreground);
 }
 
+/* Axis styling */
 :deep(.unovis-axis) {
   color: var(--muted-foreground);
+  font-size: 12px;
 }
 
+/* Axis labels */
 :deep(.unovis-axis-label) {
   fill: var(--foreground);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* Grid lines */
+:deep(.unovis-axis-grid line) {
+  stroke: var(--border);
+  stroke-opacity: 0.5;
+}
+
+/* Tick lines */
+:deep(.unovis-axis-tick line) {
+  stroke: var(--muted-foreground);
+  stroke-opacity: 0.5;
+}
+
+/* Tick text */
+:deep(.unovis-axis-tick text) {
+  fill: var(--muted-foreground);
 }
 </style>

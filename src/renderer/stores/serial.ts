@@ -148,12 +148,21 @@ export const useSerialStore = defineStore('serial', {
         // Add timestamp
         this.timestamps.push(parsed.timestamp)
 
-        // Add each value to its respective array
-        for (const [key, value] of Object.entries(parsed.values)) {
+        // Get all existing keys to ensure all arrays stay synchronized
+        const allKeys = new Set([
+          ...Object.keys(this.plotData),
+          ...Object.keys(parsed.values)
+        ])
+
+        // For each key, add either the new value or null to maintain array alignment
+        for (const key of allKeys) {
           if (!this.plotData[key]) {
-            this.plotData[key] = []
+            // New key - backfill with nulls for previous timestamps
+            this.plotData[key] = new Array(this.timestamps.length - 1).fill(null)
           }
-          this.plotData[key].push(value)
+
+          // Add current value or null if not present in this data point
+          this.plotData[key].push(parsed.values[key] ?? null)
         }
 
         // Trim plot data to match timestamps
