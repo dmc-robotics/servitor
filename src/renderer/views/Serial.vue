@@ -16,7 +16,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
 import SerialMonitor from '@/components/SerialMonitor.vue'
 import SerialPlotter from '@/components/SerialPlotter.vue'
-import { RefreshCw, Trash2, ArrowUp } from 'lucide-vue-next'
+import { RefreshCw, Trash2, ArrowUp, Save } from 'lucide-vue-next'
 
 export default defineComponent({
   name: 'Serial',
@@ -39,7 +39,8 @@ export default defineComponent({
     Switch,
     RefreshCw,
     Trash2,
-    ArrowUp
+    ArrowUp,
+    Save
   },
   data() {
     return {
@@ -50,7 +51,7 @@ export default defineComponent({
     }
   },
   computed: {
-    ...mapState(useSerialStore, ['connected', 'port', 'baudRate', 'availablePorts']),
+    ...mapState(useSerialStore, ['connected', 'port', 'baudRate', 'availablePorts', 'messages']),
 
     connectionStatus(): string {
       if (this.connected && this.port) {
@@ -96,6 +97,18 @@ export default defineComponent({
 
     handleClear(): void {
       this.clearData()
+    },
+
+    handleSave(): void {
+      const text = this.messages.map((m) => m.data).join('')
+      const blob = new Blob([text], { type: 'text/plain' })
+      const url = URL.createObjectURL(blob)
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `serial-${timestamp}.txt`
+      a.click()
+      URL.revokeObjectURL(url)
     },
 
     handleKeyDown(event: KeyboardEvent): void {
@@ -198,12 +211,21 @@ export default defineComponent({
               <TabsTrigger value="monitor">Monitor</TabsTrigger>
               <TabsTrigger value="plotter">Plotter</TabsTrigger>
             </TabsList>
-            <Button
-              @click="handleClear"
-              size="icon"
-            >
-              <Trash2 class="h-4 w-4" />
-            </Button>
+            <div class="flex gap-1">
+              <Button
+                @click="handleSave"
+                size="icon"
+                :disabled="messages.length === 0"
+              >
+                <Save class="h-4 w-4" />
+              </Button>
+              <Button
+                @click="handleClear"
+                size="icon"
+              >
+                <Trash2 class="h-4 w-4" />
+              </Button>
+            </div>
           </div>
           <TabsContent value="monitor" class="flex-1 min-h-0 flex flex-col">
             <SerialMonitor />
