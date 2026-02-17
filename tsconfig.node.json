@@ -1,0 +1,9 @@
+{
+  "extends": "@electron-toolkit/tsconfig/tsconfig.node.json",
+  "compilerOptions": {
+    "strict": false,
+    "composite": true,
+    "moduleResolution": "bundler"
+  },
+  "include": ["electron.vite.config.*", "src/main/**/*", "src/preload/**/*"]
+}

@@ -1,0 +1,19 @@
+{
+  "extends": "@electron-toolkit/tsconfig/tsconfig.json",
+  "compilerOptions": {
+    "strict": false,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/renderer/*"]
+    }
+  },
+  "include": ["src/**/*", "src/**/*.vue"],
+  "references": [
+    {
+      "path": "./tsconfig.node.json"
+    },
+    {
+      "path": "./tsconfig.web.json"
+    }
+  ]
+}
