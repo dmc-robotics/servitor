@@ -2,7 +2,7 @@
 import { defineComponent } from 'vue'
 import { mapState, mapActions } from 'pinia'
 import { useSerialStore } from '@/stores/serial'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import {
   Select,
@@ -12,16 +12,17 @@ import {
   SelectValue
 } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Textarea } from '@/components/ui/textarea'
+import { Switch } from '@/components/ui/switch'
 import SerialMonitor from '@/components/SerialMonitor.vue'
 import SerialPlotter from '@/components/SerialPlotter.vue'
+import { RefreshCw, Trash2, ArrowUp } from 'lucide-vue-next'
 
 export default defineComponent({
   name: 'Serial',
   components: {
     Card,
     CardContent,
-    CardHeader,
-    CardTitle,
     Button,
     Select,
     SelectContent,
@@ -33,13 +34,19 @@ export default defineComponent({
     TabsList,
     TabsTrigger,
     SerialMonitor,
-    SerialPlotter
+    SerialPlotter,
+    Textarea,
+    Switch,
+    RefreshCw,
+    Trash2,
+    ArrowUp
   },
   data() {
     return {
       selectedPort: '',
       selectedBaudRate: 9600,
-      baudRates: [300, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200]
+      baudRates: [300, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200],
+      inputText: ''
     }
   },
   computed: {
@@ -57,7 +64,7 @@ export default defineComponent({
     }
   },
   methods: {
-    ...mapActions(useSerialStore, ['loadPorts', 'connect', 'disconnect', 'clearData']),
+    ...mapActions(useSerialStore, ['loadPorts', 'connect', 'disconnect', 'clearData', 'send']),
 
     async handleRefresh(): Promise<void> {
       await this.loadPorts()
@@ -79,8 +86,33 @@ export default defineComponent({
       await this.disconnect()
     },
 
+    async handleConnectionToggle(value: boolean): Promise<void> {
+      if (value) {
+        await this.handleConnect()
+      } else {
+        await this.handleDisconnect()
+      }
+    },
+
     handleClear(): void {
       this.clearData()
+    },
+
+    handleKeyDown(event: KeyboardEvent): void {
+      if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault()
+        this.sendMessage()
+      }
+    },
+
+    async sendMessage(): Promise<void> {
+      if (!this.inputText.trim() || !this.connected) {
+        return
+      }
+      const success = await this.send(this.inputText + '\n')
+      if (success) {
+        this.inputText = ''
+      }
     }
   },
   async mounted() {
@@ -99,91 +131,60 @@ export default defineComponent({
   <div class="flex flex-col gap-4 h-full">
     <!-- Connection Controls -->
     <Card>
-      <CardHeader>
-        <CardTitle>Connection</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div class="flex flex-wrap gap-4 items-end">
-          <!-- Port Selector -->
-          <div class="flex-1 min-w-[200px]">
-            <label class="text-sm font-medium mb-2 block">Serial Port</label>
-            <Select v-model="selectedPort" :disabled="connected">
-              <SelectTrigger>
-                <SelectValue placeholder="Select a port" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem
-                  v-for="port in availablePorts"
-                  :key="port.path"
-                  :value="port.path"
-                >
-                  {{ port.path }}
-                  <span v-if="port.manufacturer" class="text-muted-foreground">
-                    - {{ port.manufacturer }}
-                  </span>
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+      <CardContent class="px-4 py-3">
+        <div class="flex items-center gap-2">
+          <!-- Refresh button -->
+          <Button
+            @click="handleRefresh"
+            size="icon"
+            :disabled="connected"
+            class="shrink-0"
+          >
+            <RefreshCw class="h-4 w-4" />
+          </Button>
 
-          <!-- Baud Rate Selector -->
-          <div class="w-[150px]">
-            <label class="text-sm font-medium mb-2 block">Baud Rate</label>
-            <Select v-model="selectedBaudRate" :disabled="connected">
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem
-                  v-for="rate in baudRates"
-                  :key="rate"
-                  :value="rate"
-                >
-                  {{ rate }}
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          <!-- Port selector -->
+          <Select v-model="selectedPort" :disabled="connected" class="flex-1">
+            <SelectTrigger>
+              <SelectValue placeholder="Select a port" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem
+                v-for="port in availablePorts"
+                :key="port.path"
+                :value="port.path"
+              >
+                {{ port.path }}
+                <span v-if="port.manufacturer" class="text-muted-foreground">
+                  - {{ port.manufacturer }}
+                </span>
+              </SelectItem>
+            </SelectContent>
+          </Select>
 
-          <!-- Action Buttons -->
-          <div class="flex gap-2">
-            <Button
-              v-if="!connected"
-              @click="handleConnect"
-              :disabled="!canConnect"
-            >
-              Connect
-            </Button>
-            <Button
-              v-else
-              @click="handleDisconnect"
-              variant="destructive"
-            >
-              Disconnect
-            </Button>
-            <Button
-              @click="handleRefresh"
-              variant="outline"
-              :disabled="connected"
-            >
-              Refresh
-            </Button>
-            <Button
-              @click="handleClear"
-              variant="outline"
-            >
-              Clear
-            </Button>
-          </div>
-        </div>
+          <!-- Baud rate selector -->
+          <Select v-model="selectedBaudRate" :disabled="connected" class="w-36">
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem
+                v-for="rate in baudRates"
+                :key="rate"
+                :value="rate"
+              >
+                {{ rate }} baud
+              </SelectItem>
+            </SelectContent>
+          </Select>
 
-        <!-- Status -->
-        <div class="mt-4 flex items-center gap-2">
-          <div
-            class="w-2 h-2 rounded-full"
-            :class="connected ? 'bg-green-500' : 'bg-gray-400'"
+          <!-- Connection toggle -->
+          <Switch
+            class="ml-auto"
+            :checked="connected"
+            :disabled="!connected && !selectedPort"
+            @click="handleConnectionToggle(!connected)"
           />
-          <span class="text-sm text-muted-foreground">{{ connectionStatus }}</span>
         </div>
       </CardContent>
     </Card>
@@ -192,10 +193,18 @@ export default defineComponent({
     <Card class="flex-1 flex flex-col min-h-0">
       <CardContent class="p-6 flex-1 flex flex-col min-h-0">
         <Tabs default-value="monitor" class="flex-1 flex flex-col min-h-0">
-          <TabsList class="grid w-full grid-cols-2 max-w-[400px]">
-            <TabsTrigger value="monitor">Monitor</TabsTrigger>
-            <TabsTrigger value="plotter">Plotter</TabsTrigger>
-          </TabsList>
+          <div class="flex items-center justify-between">
+            <TabsList class="grid grid-cols-2 max-w-[400px]">
+              <TabsTrigger value="monitor">Monitor</TabsTrigger>
+              <TabsTrigger value="plotter">Plotter</TabsTrigger>
+            </TabsList>
+            <Button
+              @click="handleClear"
+              size="icon"
+            >
+              <Trash2 class="h-4 w-4" />
+            </Button>
+          </div>
           <TabsContent value="monitor" class="flex-1 min-h-0 flex flex-col">
             <SerialMonitor />
           </TabsContent>
@@ -203,6 +212,28 @@ export default defineComponent({
             <SerialPlotter />
           </TabsContent>
         </Tabs>
+
+        <!-- Send command - always visible regardless of active tab -->
+        <div class="shrink-0 mt-4">
+          <div class="relative">
+            <Textarea
+              v-model="inputText"
+              placeholder=""
+              rows="3"
+              :disabled="!connected"
+              @keydown="handleKeyDown"
+              class="font-mono text-sm pr-10"
+            />
+            <Button
+              @click="sendMessage"
+              :disabled="!connected || !inputText.trim()"
+              size="icon"
+              class="absolute bottom-2 right-2 h-7 w-7"
+            >
+              <ArrowUp :stroke-width="3" class="h-5 w-5" />
+            </Button>
+          </div>
+        </div>
       </CardContent>
     </Card>
   </div>

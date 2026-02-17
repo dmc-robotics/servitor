@@ -57,7 +57,10 @@
         <div class="flex flex-1 items-center justify-between">
           <h2 class="text-lg font-semibold">{{ pageTitle }}</h2>
           <div class="flex items-center gap-2">
-            <span class="text-sm text-muted-foreground">●</span>
+            <div
+              class="w-4 h-4 rounded-full"
+              :class="connected ? 'bg-green-500' : 'bg-gray-400'"
+            />
           </div>
         </div>
       </header>
@@ -70,6 +73,8 @@
 
 <script lang="ts">
 import { defineComponent } from 'vue'
+import { mapState } from 'pinia'
+import { useSerialStore } from '@/stores/serial'
 import { LayoutDashboard, Radio, Settings } from 'lucide-vue-next'
 import {
   Sidebar,
@@ -110,6 +115,8 @@ export default defineComponent({
     SidebarTrigger
   },
   computed: {
+    ...mapState(useSerialStore, ['connected']),
+
     pageTitle(): string {
       const route = this.$route
       if (route.name === 'Dashboard') return 'Dashboard'

@@ -126,8 +126,8 @@ export default defineComponent({
 
 <template>
   <div class="flex flex-col h-full">
-    <!-- Chart area -->
-    <div class="flex-1 border rounded-md p-4 bg-muted/30 min-h-0">
+    <!-- Chart area with legend overlaid inside -->
+    <div class="flex-1 border rounded-md p-4 bg-muted/30 min-h-0 relative">
       <div v-if="!hasData" class="flex items-center justify-center h-full text-muted-foreground italic">
         No data to plot. Send numeric data in format: temp:25 or x:10,y:20,z:30
       </div>
@@ -161,21 +161,21 @@ export default defineComponent({
             :gridLine="true"
           />
         </VisXYContainer>
-      </div>
-    </div>
 
-    <!-- Legend -->
-    <div v-if="hasData" class="mt-4 flex flex-wrap gap-4">
-      <div
-        v-for="(key, index) in dataKeys"
-        :key="key"
-        class="flex items-center gap-2"
-      >
-        <div
-          class="w-4 h-4 rounded"
-          :style="{ backgroundColor: getSeriesColor(index) }"
-        />
-        <span class="text-sm font-medium">{{ key }}</span>
+        <!-- Legend overlaid in lower-left corner -->
+        <div class="absolute bottom-6 left-16 flex flex-col gap-1">
+          <div
+            v-for="(key, index) in dataKeys"
+            :key="key"
+            class="flex items-center gap-2"
+          >
+            <div
+              class="w-3 h-3 rounded-sm shrink-0"
+              :style="{ backgroundColor: getSeriesColor(index) }"
+            />
+            <span class="text-xs font-medium">{{ key }}</span>
+          </div>
+        </div>
       </div>
     </div>
   </div>
