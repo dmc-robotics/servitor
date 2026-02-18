@@ -6,11 +6,9 @@
 
 ## Application Overview
 
-Calvin Explorator is an Electron desktop application built with Vue 3, TypeScript, and shadcn-vue components. Features include:
-
 - A serial plotter
 - A serial monitor
-- A project directory with one click build and load commands
+- A project directory with one click build and load commands that call grot commands in the background
 - Multi-theme support with light/dark modes from the themninator library
 - Sticky global header and collapsable sidebar
 
@@ -34,7 +32,6 @@ Calvin Explorator is an Electron desktop application built with Vue 3, TypeScrip
 - **TypeScript** - All code uses TypeScript with `strict: false` for gradual adoption
 - **Options API** - Use Options API with `<script lang="ts">` in all Vue components (not Composition API). Using compisition api when importing components or libraries is acceptable - keep it in the 3rd party library's native API
 - **Hash mode routing** - Router uses `createWebHashHistory()` for Electron compatibility
-- **shadcn-vue CLI** - Install components via `npx shadcn-vue@latest add <component>`
 
 ## Project Structure
 
@@ -58,6 +55,15 @@ Charts automatically adapt to active theme via `--chart-1` through `--chart-5` C
 
 Location: `src/renderer/views/Dashboard.vue`
 
+**Features**
+
+- the user can add projects (directorie that contain .ino and .grotnofig files)
+- the projects will be displayed in cards with a shadcn theme/style
+-projects are editable
+- cards will have a title, description, url, build button, load button, and update port button.
+-the build and load buttons will call the grot commands
+-the update port command will scan the available ports, find the arduino, and edit the .grot config file.
+
 ## Serial Page
 
 Location: `src/renderer/views/Serial.vue`
@@ -68,7 +74,7 @@ Location: `src/renderer/views/Serial.vue`
   - tabs to select monitor or plotter
   - text area underneath monitor/plotter to send data back through serial connection
   - real time updates
-  - data protocol should be crated that is simple and human readable
+  - data protocol is simple and human readable, designed to be sent from arduino code
 
 ## Layout Component
 
@@ -76,26 +82,21 @@ Location: `src/renderer/components/Layout.vue`
 
 **Features:**
 
-- Sticky global header with battery status indicator
+- Sticky global header with serial connection indicator
 - Collapsible sidebar navigation
 - Main content area with router view
 
 **Sticky Header:**
 
-- Classes: `sticky top-0 z-10 bg-background`
 - Stays visible when scrolling
-- Contains: SidebarTrigger
+- Contains: SidebarTrigger, but only visible when screen is too narrow for icon view
 
-**Key Points:**
-
-- Header background uses theme variable to match page background
-- `z-10` ensures header stays above scrolling content
 
 ## shadcn-vue Components
 
 ### Installation
 
-```bash
+```zsh
 npx shadcn-vue@latest add <component-name>
 ```
 
@@ -128,9 +129,16 @@ Components are installed to `src/renderer/components/ui/`.
 - All styling goes in `style.css` using theme CSS variables
 - **Critical**: Inline styles override theme system and break light/dark mode switching
 
+**General Guidance**
+
+- Don't improvise. Use conventional code when possible. Always ask for confirmation before writing code that breaks standard patterns
+- Don't write code that fights against external libraries. Instead, suggest more conventional approahes.
+- Check your work
+- Favor maintainability and simplicity over cleverness and complexity
+
 ## Development Commands
 
-```bash
+```zsh
 npm run dev      # Start dev server + launch Electron with hot-reload
 npm run build    # Build for production
 npm start        # Preview production build (alias for preview)
@@ -169,16 +177,6 @@ Components auto-install with dependencies and types.
 ### Keyboard Shortcuts in Inputs
 
 - Enter = send/submit, Shift+Enter = new line
-- Always `event.preventDefault()` on plain Enter to avoid unwanted newlines
-- Let Shift+Enter use default behavior (creates newline)
-
-## File Editing Rules
-
-- **Use TypeScript** - `.ts` extension for scripts, `lang="ts"` in Vue files
-- **Use Options API** - `<script lang="ts">` with `defineComponent()` in all Vue components we create
-- **Define interfaces** - Type all data structures
-- **Extract constants** - No magic numbers
-- **Use theme variables** - Reference CSS variables for colors
 
 ## Best Practices
 
@@ -202,13 +200,13 @@ Components auto-install with dependencies and types.
 - Use theme CSS variables for colors (always `var(--variable)` syntax)
 - Use scoped styles for component-specific styling
 - Avoid inline styles except for dynamic values
+- Avoid custom styling unless it greatly increases complexity
 
 ### Charts
 
 - Extract chart configuration to constants
 - Define proper interfaces for data points
 - Use theme variables for colors
-- Keep chart styling in scoped styles with `:deep()`
 
 ## Integration with Other Systems
 
@@ -219,29 +217,9 @@ Components auto-install with dependencies and types.
 ## Notes
 
 - **No git commits** - User handles all git operations
-- **Production optimization** - Production builds are optimized and fast
 - **Dark mode first** - App defaults to dark mode, configurable in Settings
 - **Theme persistence** - Settings stored in localStorage via theminator (`theminator:darkMode`, `theminator:theme`)
 - **Type safety** - `strict: false` allows gradual TypeScript adoption
-- **Dummy data** - Currently uses data generators; real integration pending cogitator network interface
-- **Theminator** - Theme system extracted to reusable library at `~/code/theminator`
-
-## Troubleshooting
-
-### White Flash on Startup
-
-Fixed via Electron configuration only:
-
-1. `backgroundColor: '#1a1a1a'` in BrowserWindow
-2. `show: false` + `ready-to-show` event
-
-**Do not use inline styles** - they override theme variables and break light/dark mode.
-
-### Light Mode Issues
-
-**Problem**: Inline styles in `index.html` with hardcoded colors (e.g., `color: #fafafa`) will override theme CSS variables and break light mode (white text on white background).
-
-**Solution**: Remove all inline styles from HTML. Let theme system handle all colors via CSS variables in `style.css`. The `@layer base` section in `style.css` sets `background-color: var(--background)` and `color: var(--foreground)` which automatically adapt to light/dark mode and selected theme.
 
 ### shadcn-vue Compatibility
 
@@ -249,9 +227,3 @@ Fixed via Electron configuration only:
 - Check and fix CSS variable syntax: `var(--variable)` not `--variable`
 - Components tested: Sidebar, Card, Button, Switch, Select, Textarea
 - if fixes are needed, make comments stating what the fix was and why.
-
-### Chart Styling
-
-- Use `:deep()` for styling Unovis chart internals
-- Set CSS variables on container for theme integration
-- Grid lines require `!important` to override defaults
