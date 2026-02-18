@@ -1,7 +1,7 @@
 <template>
-  <div class="dashboard">
-    <h1>Dashboard</h1>
-    <p>Welcome to Servitor - Arduino Serial Monitor & Project Management</p>
+  <div class="p-8">
+    <h1 class="text-4xl font-bold mb-4 text-foreground">Dashboard</h1>
+    <p class="text-muted-foreground">Welcome to Servitor - Arduino Serial Monitor & Project Management</p>
   </div>
 </template>
 
@@ -12,19 +12,3 @@ export default defineComponent({
   name: 'Dashboard'
 })
 </script>
-
-<style scoped>
-.dashboard {
-  padding: 2rem;
-}
-
-h1 {
-  font-size: 2rem;
-  margin-bottom: 1rem;
-  color: var(--foreground);
-}
-
-p {
-  color: var(--muted-foreground);
-}
-</style>

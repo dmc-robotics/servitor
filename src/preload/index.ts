@@ -18,6 +18,7 @@ export interface SerialAPI {
   write: (data: string) => Promise<SerialResult<void>>
   getStatus: () => Promise<SerialResult<ConnectionStatus>>
   onData: (callback: (data: SerialDataEvent) => void) => () => void
+  onConnectionLost: (callback: (reason: string) => void) => () => void
 }
 
 // Serial API implementation
@@ -32,15 +33,20 @@ const serialAPI: SerialAPI = {
       callback(data)
     }
     ipcRenderer.on('serial:data', listener)
-    // Return cleanup function
     return () => {
       ipcRenderer.removeListener('serial:data', listener)
     }
+  },
+  onConnectionLost: (callback) => {
+    const listener = (_event: Electron.IpcRendererEvent, reason: string) => {
+      callback(reason)
+    }
+    ipcRenderer.on('serial:connection-lost', listener)
+    return () => {
+      ipcRenderer.removeListener('serial:connection-lost', listener)
+    }
   }
 }
-
-// Custom APIs for renderer
-const api = {}
 
 // Use `contextBridge` APIs to expose Electron APIs to
 // renderer only if context isolation is enabled, otherwise
@@ -48,7 +54,6 @@ const api = {}
 if (process.contextIsolated) {
   try {
     contextBridge.exposeInMainWorld('electron', electronAPI)
-    contextBridge.exposeInMainWorld('api', api)
     contextBridge.exposeInMainWorld('serialAPI', serialAPI)
   } catch (error) {
     console.error(error)
@@ -56,8 +61,6 @@ if (process.contextIsolated) {
 } else {
   // @ts-ignore (define in dts)
   window.electron = electronAPI
-  // @ts-ignore (define in dts)
-  window.api = api
   // @ts-ignore (define in dts)
   window.serialAPI = serialAPI
 }

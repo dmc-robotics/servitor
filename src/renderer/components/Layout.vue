@@ -59,7 +59,7 @@
           <div class="flex items-center gap-2">
             <div
               class="w-4 h-4 rounded-full"
-              :class="connected ? 'bg-green-500' : 'bg-gray-400'"
+              :class="connected ? 'bg-green-500' : 'bg-muted-foreground/50'"
             />
           </div>
         </div>
@@ -127,7 +127,3 @@ export default defineComponent({
   }
 })
 </script>
-
-<style scoped>
-/* Additional styles if needed */
-</style>

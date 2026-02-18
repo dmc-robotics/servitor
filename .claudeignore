@@ -1,0 +1,45 @@
+# Dependencies
+node_modules/
+
+# Build output
+out/
+dist/
+dist-ssr/
+build/
+release/
+
+# Logs
+*.log
+logs/
+
+# Lock files (large, rarely useful for context)
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Generated/compiled assets
+resources/icon.icns
+resources/icon.ico
+
+# Environment and local config
+.env.local
+.env.*.local
+
+# Editor artifacts
+.vscode/
+.idea/
+*.suo
+*.sw?
+
+# OS artifacts
+.DS_Store
+Thumbs.db
+
+# Git internals
+.git/
+
+# Memory files (session-specific, not code)
+.claude/memory/
+
+# Code review output (transient)
+code_review.md

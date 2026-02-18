@@ -16,6 +16,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
 import SerialMonitor from '@/components/SerialMonitor.vue'
 import SerialPlotter from '@/components/SerialPlotter.vue'
+import { VALID_BAUD_RATES, DEFAULT_BAUD_RATE } from '../../shared/types/serial'
 import { RefreshCw, Trash2, ArrowUp, Save } from 'lucide-vue-next'
 
 export default defineComponent({
@@ -45,9 +46,11 @@ export default defineComponent({
   data() {
     return {
       selectedPort: '',
-      selectedBaudRate: 9600,
-      baudRates: [300, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200],
-      inputText: ''
+      selectedBaudRate: DEFAULT_BAUD_RATE,
+      baudRates: VALID_BAUD_RATES as unknown as number[],
+      inputText: '',
+      showRaw: false,
+      isToggling: false
     }
   },
   computed: {
@@ -67,40 +70,37 @@ export default defineComponent({
   methods: {
     ...mapActions(useSerialStore, ['loadPorts', 'connect', 'disconnect', 'clearData', 'send']),
 
-    async handleRefresh(): Promise<void> {
-      await this.loadPorts()
-    },
-
     async handleConnect(): Promise<void> {
-      if (!this.selectedPort) {
+      if (!this.selectedPort || this.isToggling) {
         return
       }
 
-      const success = await this.connect(this.selectedPort, this.selectedBaudRate)
-      if (!success) {
-        // TODO: Show error toast
-        console.error('Failed to connect')
+      this.isToggling = true
+      try {
+        const success = await this.connect(this.selectedPort, this.selectedBaudRate)
+        if (!success) {
+          console.error('Failed to connect')
+        }
+      } finally {
+        this.isToggling = false
       }
     },
 
     async handleDisconnect(): Promise<void> {
-      await this.disconnect()
-    },
+      if (this.isToggling) {
+        return
+      }
 
-    async handleConnectionToggle(value: boolean): Promise<void> {
-      if (value) {
-        await this.handleConnect()
-      } else {
-        await this.handleDisconnect()
+      this.isToggling = true
+      try {
+        await this.disconnect()
+      } finally {
+        this.isToggling = false
       }
     },
 
-    handleClear(): void {
-      this.clearData()
-    },
-
     handleSave(): void {
-      const text = this.messages.map((m) => m.data).join('')
+      const text = this.messages.map((m) => m.data).join('\n')
       const blob = new Blob([text], { type: 'text/plain' })
       const url = URL.createObjectURL(blob)
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
@@ -148,7 +148,7 @@ export default defineComponent({
         <div class="flex items-center gap-2">
           <!-- Refresh button -->
           <Button
-            @click="handleRefresh"
+            @click="loadPorts"
             size="icon"
             :disabled="connected"
             class="shrink-0"
@@ -192,12 +192,14 @@ export default defineComponent({
           </Select>
 
           <!-- Connection toggle -->
-          <Switch
+          <Button
+            @click="connected ? handleDisconnect() : handleConnect()"
+            :disabled="isToggling || (!connected && !selectedPort)"
+            :variant="connected ? 'destructive' : 'default'"
             class="ml-auto"
-            :checked="connected"
-            :disabled="!connected && !selectedPort"
-            @click="handleConnectionToggle(!connected)"
-          />
+          >
+            {{ connected ? 'Disconnect' : 'Connect' }}
+          </Button>
         </div>
       </CardContent>
     </Card>
@@ -207,10 +209,16 @@ export default defineComponent({
       <CardContent class="p-6 flex-1 flex flex-col min-h-0">
         <Tabs default-value="monitor" class="flex-1 flex flex-col min-h-0">
           <div class="flex items-center justify-between">
-            <TabsList class="grid grid-cols-2 max-w-[400px]">
-              <TabsTrigger value="monitor">Monitor</TabsTrigger>
-              <TabsTrigger value="plotter">Plotter</TabsTrigger>
-            </TabsList>
+            <div class="flex items-center gap-4">
+              <TabsList class="grid grid-cols-2 max-w-[400px]">
+                <TabsTrigger value="monitor">Monitor</TabsTrigger>
+                <TabsTrigger value="plotter">Plotter</TabsTrigger>
+              </TabsList>
+              <div class="flex items-center gap-2">
+                <Switch v-model="showRaw" />
+                <span class="text-xs text-muted-foreground">Raw</span>
+              </div>
+            </div>
             <div class="flex gap-1">
               <Button
                 @click="handleSave"
@@ -220,7 +228,7 @@ export default defineComponent({
                 <Save class="h-4 w-4" />
               </Button>
               <Button
-                @click="handleClear"
+                @click="clearData"
                 size="icon"
               >
                 <Trash2 class="h-4 w-4" />
@@ -228,7 +236,7 @@ export default defineComponent({
             </div>
           </div>
           <TabsContent value="monitor" class="flex-1 min-h-0 flex flex-col">
-            <SerialMonitor />
+            <SerialMonitor :show-raw="showRaw" />
           </TabsContent>
           <TabsContent value="plotter" class="flex-1 min-h-0 flex flex-col">
             <SerialPlotter />

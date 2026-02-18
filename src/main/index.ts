@@ -78,14 +78,21 @@ function registerSerialIpcHandlers(): void {
 }
 
 /**
- * Set up data callback to forward serial data to all open renderer windows
+ * Set up callbacks to forward serial events to all open renderer windows
  * This handles 0, 1, or multiple windows gracefully
  */
-function setupSerialDataCallback(): void {
+function setupSerialCallbacks(): void {
   serialManager.setDataCallback((data) => {
     const windows = BrowserWindow.getAllWindows()
     windows.forEach((window) => {
       window.webContents.send('serial:data', data)
+    })
+  })
+
+  serialManager.setConnectionLostCallback((reason) => {
+    const windows = BrowserWindow.getAllWindows()
+    windows.forEach((window) => {
+      window.webContents.send('serial:connection-lost', reason)
     })
   })
 }
@@ -100,8 +107,8 @@ app.whenReady().then(() => {
   // Register serial IPC handlers once (they're global, not per-window)
   registerSerialIpcHandlers()
 
-  // Set up serial data callback to broadcast to all windows
-  setupSerialDataCallback()
+  // Set up serial callbacks to broadcast to all windows
+  setupSerialCallbacks()
 
   // Default open or close DevTools by F12 in development
   // and ignore CommandOrControl + R in production.

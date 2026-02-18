@@ -6,6 +6,12 @@ import type { ParsedSerialData } from '@/utils/serial-parser'
 
 export default defineComponent({
   name: 'SerialMonitor',
+  props: {
+    showRaw: {
+      type: Boolean,
+      default: false
+    }
+  },
   computed: {
     ...mapState(useSerialStore, ['messages'])
   },
@@ -68,6 +74,9 @@ export default defineComponent({
     >
       <div v-if="messages.length === 0" class="text-muted-foreground italic">
         No messages yet. Connect to a serial port to start receiving data.
+      </div>
+      <div v-else-if="showRaw">
+        <div v-for="(message, index) in messages" :key="index">{{ message.data }}</div>
       </div>
       <div v-else>
         <div v-for="(message, index) in messages" :key="index">

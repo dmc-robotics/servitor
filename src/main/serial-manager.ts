@@ -1,7 +1,7 @@
 import { SerialPort } from 'serialport'
 import { ReadlineParser } from '@serialport/parser-readline'
-import { SERIAL_CONSTANTS } from './serial-constants'
 import {
+  LINE_DELIMITER,
   SerialResult,
   SerialConfig,
   SerialDataEvent,
@@ -19,6 +19,7 @@ export class SerialManager {
   private isConnected = false
   private currentConfig: SerialConfig | null = null
   private dataCallback: ((data: SerialDataEvent) => void) | null = null
+  private connectionLostCallback: ((reason: string) => void) | null = null
 
   /**
    * List all available serial ports
@@ -61,7 +62,7 @@ export class SerialManager {
       })
 
       // Set up parser for line-delimited data
-      this.parser = this.port.pipe(new ReadlineParser({ delimiter: SERIAL_CONSTANTS.LINE_DELIMITER }))
+      this.parser = this.port.pipe(new ReadlineParser({ delimiter: LINE_DELIMITER }))
 
       // Set up data handler
       this.parser.on('data', (data: string) => {
@@ -76,15 +77,21 @@ export class SerialManager {
       // Set up error handler
       this.port.on('error', (err) => {
         console.error('Serial port error:', err)
+        const reason = err instanceof Error ? err.message : 'Unknown error'
         // Port is already in error state - skip graceful close and cleanup directly
         this.cleanup()
+        this.connectionLostCallback?.(reason)
       })
 
-      // Set up close handler
+      // Set up close handler - fires on unexpected disconnect (e.g. USB unplugged)
       this.port.on('close', () => {
         console.log('Serial port closed')
+        const wasConnected = this.isConnected
         this.isConnected = false
         this.currentConfig = null
+        if (wasConnected) {
+          this.connectionLostCallback?.('Port closed')
+        }
       })
 
       // Open the port
@@ -197,10 +204,10 @@ export class SerialManager {
   }
 
   /**
-   * Remove data callback
+   * Set callback for connection lost events (port error or unexpected close)
    */
-  removeDataCallback(): void {
-    this.dataCallback = null
+  setConnectionLostCallback(callback: (reason: string) => void): void {
+    this.connectionLostCallback = callback
   }
 
   /**

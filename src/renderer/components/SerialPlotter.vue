@@ -2,8 +2,8 @@
 import { defineComponent } from 'vue'
 import { mapState } from 'pinia'
 import { useSerialStore } from '@/stores/serial'
-import { VisXYContainer, VisLine, VisAxis } from '@unovis/vue'
-import { CurveType } from '@unovis/ts'
+import { VisXYContainer, VisLine, VisAxis, VisBulletLegend } from '@unovis/vue'
+import { CurveType, BulletShape } from '@unovis/ts'
 
 interface PlotDataPoint {
   timestamp: number
@@ -15,20 +15,37 @@ export default defineComponent({
   components: {
     VisXYContainer,
     VisLine,
-    VisAxis
+    VisAxis,
+    VisBulletLegend
   },
   data() {
     return {
       containerHeight: 400,
+      containerWidth: 0,
+      resizeObserver: null as ResizeObserver | null,
+      resizeRAF: 0,
       CurveType
     }
   },
   mounted() {
-    this.updateHeight()
-    window.addEventListener('resize', this.updateHeight)
+    this.$nextTick(() => {
+      this.measureContainer()
+
+      const container = this.$el?.querySelector('.chart-container') as HTMLElement
+      if (container) {
+        this.resizeObserver = new ResizeObserver(() => {
+          this.measureContainer()
+        })
+        this.resizeObserver.observe(container)
+      }
+
+      window.addEventListener('resize', this.handleWindowResize)
+    })
   },
   beforeUnmount() {
-    window.removeEventListener('resize', this.updateHeight)
+    this.resizeObserver?.disconnect()
+    window.removeEventListener('resize', this.handleWindowResize)
+    cancelAnimationFrame(this.resizeRAF)
   },
   computed: {
     ...mapState(useSerialStore, ['plotData', 'timestamps']),
@@ -74,37 +91,25 @@ export default defineComponent({
      */
     hasData(): boolean {
       return this.dataKeys.length > 0 && this.timestamps.length > 0
+    },
+
+    legendItems(): { name: string; color: string; shape: BulletShape }[] {
+      return this.dataKeys.map((key, index) => ({
+        name: key,
+        color: this.getSeriesColor(index),
+        shape: BulletShape.Line
+      }))
     }
   },
   methods: {
     /**
-     * Update container height based on available space
-     */
-    updateHeight(): void {
-      this.$nextTick(() => {
-        const container = this.$el?.querySelector('.chart-container') as HTMLElement
-        if (container) {
-          const availableHeight = container.clientHeight
-          this.containerHeight = Math.max(300, availableHeight - 20)
-        }
-      })
-    },
-
-    /**
-     * Get color for data series (uses theme chart colors)
+     * Get color for data series from theme chart CSS variables
      */
     getSeriesColor(index: number): string {
-      const ROYGBIV = [
-        '#00cc44', // Green
-        '#ff2200', // Red
-        '#0088ff', // Blue
-        '#ffee00', // Yellow
-        '#9900cc', // Violet
-        '#ff8800', // Orange
-        '#4400cc', // Indigo
-        '#ffffff'  // White
-      ]
-      return ROYGBIV[index % ROYGBIV.length]
+      const CHART_COLOR_COUNT = 5
+      const colorIndex = (index % CHART_COLOR_COUNT) + 1
+      const cssVar = `--chart-${colorIndex}`
+      return getComputedStyle(document.documentElement).getPropertyValue(cssVar).trim() || 'currentColor'
     },
 
     /**
@@ -119,6 +124,30 @@ export default defineComponent({
      */
     createYAccessor(key: string): (d: PlotDataPoint) => number | null {
       return (d: PlotDataPoint) => d[key]
+    },
+
+    /**
+     * On window resize, temporarily shrink the SVG to 1px so the flex layout
+     * can reflow to the new window size, then re-measure the actual container.
+     * This breaks the deadlock where the Unovis SVG's fixed pixel width attribute
+     * prevents the container from reporting a smaller clientWidth on shrink.
+     */
+    handleWindowResize() {
+      cancelAnimationFrame(this.resizeRAF)
+      this.resizeRAF = requestAnimationFrame(() => {
+        this.containerWidth = 1
+        this.$nextTick(() => {
+          this.measureContainer()
+        })
+      })
+    },
+
+    measureContainer() {
+      const container = this.$el?.querySelector('.chart-container') as HTMLElement
+      if (container) {
+        this.containerWidth = container.clientWidth
+        this.containerHeight = Math.max(300, container.clientHeight - 20)
+      }
     }
   }
 })
@@ -126,57 +155,45 @@ export default defineComponent({
 
 <template>
   <div class="flex flex-col h-full">
-    <!-- Chart area with legend overlaid inside -->
-    <div class="flex-1 border rounded-md p-4 bg-muted/30 min-h-0 relative">
-      <div v-if="!hasData" class="flex items-center justify-center h-full text-muted-foreground italic">
+    <div class="flex-1 border rounded-md p-4 bg-muted/30 min-h-0 flex flex-col gap-2">
+      <div v-if="!hasData" class="flex items-center justify-center flex-1 text-muted-foreground italic">
         No data to plot. Send numeric data in format: temp:25 or x:10,y:20,z:30
       </div>
-      <div v-else class="h-full chart-container">
-        <VisXYContainer
-          :data="chartData"
-          :height="containerHeight"
-          :margin="{ top: 20, right: 20, bottom: 60, left: 60 }"
-          :duration="0"
-        >
-          <VisLine
-            v-for="(key, index) in dataKeys"
-            :key="key"
-            :x="x"
-            :y="createYAccessor(key)"
-            :color="getSeriesColor(index)"
-            :lineWidth="2"
+      <template v-else>
+        <div class="flex-1 min-h-0 chart-container">
+          <VisXYContainer
+            :data="chartData"
+            :width="containerWidth || undefined"
+            :height="containerHeight"
+            :margin="{ top: 20, right: 20, bottom: 0, left: 10 }"
             :duration="0"
-            :curveType="CurveType.Linear"
-          />
-          <VisAxis
-            type="x"
-            label="Elapsed time (s)"
-            :numTicks="6"
-            :gridLine="true"
-          />
-          <VisAxis
-            type="y"
-            label="Value"
-            :numTicks="8"
-            :gridLine="true"
-          />
-        </VisXYContainer>
-
-        <!-- Legend overlaid in lower-left corner -->
-        <div class="absolute bottom-6 left-16 flex flex-col gap-1">
-          <div
-            v-for="(key, index) in dataKeys"
-            :key="key"
-            class="flex items-center gap-2"
           >
-            <div
-              class="w-3 h-3 rounded-sm shrink-0"
-              :style="{ backgroundColor: getSeriesColor(index) }"
+            <VisLine
+              v-for="(key, index) in dataKeys"
+              :key="key"
+              :x="x"
+              :y="createYAccessor(key)"
+              :color="getSeriesColor(index)"
+              :lineWidth="2"
+              :duration="0"
+              :curveType="CurveType.Linear"
             />
-            <span class="text-xs font-medium">{{ key }}</span>
-          </div>
+            <VisAxis
+              type="x"
+              label="Elapsed time (s)"
+              :numTicks="6"
+              :gridLine="true"
+            />
+            <VisAxis
+              type="y"
+              label="Value"
+              :numTicks="8"
+              :gridLine="true"
+            />
+          </VisXYContainer>
         </div>
-      </div>
+        <VisBulletLegend :items="legendItems" class="shrink-0 pl-5" />
+      </template>
     </div>
   </div>
 </template>

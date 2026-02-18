@@ -1,4 +1,4 @@
-import { SerialDataEvent } from '@/shared/types/serial'
+import { SerialDataEvent } from '../../shared/types/serial'
 
 /** Parsed serial data types */
 export type ParsedDataType = 'data' | 'error' | 'warn' | 'info' | 'debug' | 'log'
@@ -12,21 +12,13 @@ export interface ParsedSerialData extends SerialDataEvent {
 
 /** Serial data protocol regex patterns */
 const PATTERNS = {
-  /** Single labeled value: temp:25 */
-  SINGLE_VALUE: /^([a-zA-Z_]\w*):(-?\d+(?:\.\d+)?)$/,
-
-  /** Multiple labeled values: A:10,B:20,C:30 */
-  MULTI_VALUE: /^([a-zA-Z_]\w*:-?\d+(?:\.\d+)?(?:,[a-zA-Z_]\w*:-?\d+(?:\.\d+)?)*)$/,
+  /** Labeled values: temp:25 or A:10,B:20,C:30 */
+  DATA_VALUES: /^([a-zA-Z_]\w*:-?\d+(?:\.\d+)?(?:,[a-zA-Z_]\w*:-?\d+(?:\.\d+)?)*)$/,
 
   /** Log levels: ERROR:message, WARN:message, INFO:message, DEBUG:message */
   LOG_LEVEL: /^(ERROR|WARN|INFO|DEBUG):(.+)$/
 }
 
-/** Maximum line length for serial data */
-export const MAX_LINE_LENGTH = 256
-
-/** Maximum messages to keep in buffer */
-export const MAX_BUFFER_SIZE = 500
 
 /**
  * Parse a line of serial data into structured format
@@ -64,9 +56,9 @@ export function parseSerialLine(line: string, timestamp: number): ParsedSerialDa
     }
   }
 
-  // Check for multi-value data (A:10,B:20,C:30)
-  const multiMatch = trimmed.match(PATTERNS.MULTI_VALUE)
-  if (multiMatch) {
+  // Check for data values (temp:25 or A:10,B:20,C:30)
+  const dataMatch = trimmed.match(PATTERNS.DATA_VALUES)
+  if (dataMatch) {
     const values: Record<string, number> = {}
     const pairs = trimmed.split(',')
 
@@ -88,17 +80,6 @@ export function parseSerialLine(line: string, timestamp: number): ParsedSerialDa
         type: 'data',
         values
       }
-    }
-  }
-
-  // Check for single value data (temp:25)
-  const singleMatch = trimmed.match(PATTERNS.SINGLE_VALUE)
-  if (singleMatch) {
-    return {
-      timestamp,
-      data: line,
-      type: 'data',
-      values: { [singleMatch[1]]: parseFloat(singleMatch[2]) }
     }
   }
 

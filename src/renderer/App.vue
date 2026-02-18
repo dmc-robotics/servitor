@@ -13,7 +13,3 @@ export default defineComponent({
   }
 })
 </script>
-
-<style>
-/* Global styles are in assets/main.css */
-</style>

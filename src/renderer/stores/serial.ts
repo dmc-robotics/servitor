@@ -1,9 +1,6 @@
 import { defineStore } from 'pinia'
-import { SerialDataEvent, PortInfo } from '@/shared/types/serial'
-import { parseSerialLine, ParsedSerialData, MAX_BUFFER_SIZE } from '@/utils/serial-parser'
-
-/** Default baud rate for serial connections */
-const DEFAULT_BAUD_RATE = 9600
+import { SerialDataEvent, PortInfo, DEFAULT_BAUD_RATE, MAX_BUFFER_SIZE } from '../../shared/types/serial'
+import { parseSerialLine, ParsedSerialData } from '@/utils/serial-parser'
 
 interface SerialState {
   // Connection state
@@ -19,8 +16,9 @@ interface SerialState {
   plotData: Record<string, number[]>
   timestamps: number[]
 
-  // Data listener cleanup function
+  // Listener cleanup functions
   dataCleanup: (() => void) | null
+  connectionLostCleanup: (() => void) | null
 }
 
 export const useSerialStore = defineStore('serial', {
@@ -32,7 +30,8 @@ export const useSerialStore = defineStore('serial', {
     messages: [],
     plotData: {},
     timestamps: [],
-    dataCleanup: null
+    dataCleanup: null,
+    connectionLostCleanup: null
   }),
 
   actions: {
@@ -71,10 +70,14 @@ export const useSerialStore = defineStore('serial', {
      * Disconnect from serial port
      */
     async disconnect(): Promise<void> {
-      // Remove data listener first
+      // Remove listeners first
       if (this.dataCleanup) {
         this.dataCleanup()
         this.dataCleanup = null
+      }
+      if (this.connectionLostCleanup) {
+        this.connectionLostCleanup()
+        this.connectionLostCleanup = null
       }
 
       const result = await window.serialAPI.disconnect()
@@ -114,17 +117,32 @@ export const useSerialStore = defineStore('serial', {
     },
 
     /**
-     * Set up listener for incoming serial data
+     * Set up listeners for incoming serial data and connection loss
      */
     setupDataListener(): void {
-      // Remove existing listener if any
+      // Remove existing listeners if any
       if (this.dataCleanup) {
         this.dataCleanup()
       }
+      if (this.connectionLostCleanup) {
+        this.connectionLostCleanup()
+      }
 
-      // Set up new listener
       this.dataCleanup = window.serialAPI.onData((data: SerialDataEvent) => {
         this.handleSerialData(data)
+      })
+
+      this.connectionLostCleanup = window.serialAPI.onConnectionLost(() => {
+        this.connected = false
+        this.port = null
+        if (this.dataCleanup) {
+          this.dataCleanup()
+          this.dataCleanup = null
+        }
+        if (this.connectionLostCleanup) {
+          this.connectionLostCleanup()
+          this.connectionLostCleanup = null
+        }
       })
     },
 
