@@ -3,10 +3,12 @@
  */
 
 import { SerialAPI } from '../../preload/index'
+import { DashboardAPI } from '../../preload/index'
 
 declare global {
   interface Window {
     serialAPI: SerialAPI
+    dashboardAPI: DashboardAPI
   }
 }
 

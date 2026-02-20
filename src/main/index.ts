@@ -2,10 +2,14 @@ import { app, shell, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { SerialManager } from './serial-manager'
+import { ProjectManager } from './project-manager'
 // import icon from '../../resources/icon.png?asset' // TODO: Add proper icon
 
 // Global serial manager instance (singleton - only one instance for entire app lifecycle)
 const serialManager = new SerialManager()
+
+// Global project manager instance
+const projectManager = new ProjectManager()
 
 // Flag to track if app is quitting (for async cleanup)
 let isQuitting = false
@@ -97,6 +101,43 @@ function setupSerialCallbacks(): void {
   })
 }
 
+/**
+ * Register IPC handlers for project/dashboard management
+ */
+function registerDashboardIpcHandlers(): void {
+  ipcMain.handle('dashboard:get-projects', async () => {
+    return await projectManager.getProjects()
+  })
+
+  ipcMain.handle('dashboard:select-directory', async () => {
+    return await projectManager.selectProjectDirectory()
+  })
+
+  ipcMain.handle('dashboard:add-project', async (_event, path, title, description) => {
+    return await projectManager.addProject(path, title, description)
+  })
+
+  ipcMain.handle('dashboard:update-project', async (_event, id, updates) => {
+    return await projectManager.updateProject(id, updates)
+  })
+
+  ipcMain.handle('dashboard:remove-project', async (_event, id) => {
+    return await projectManager.removeProject(id)
+  })
+
+  ipcMain.handle('dashboard:build', async (_event, projectId) => {
+    return await projectManager.grotBuild(projectId)
+  })
+
+  ipcMain.handle('dashboard:load', async (_event, projectId) => {
+    return await projectManager.grotLoad(projectId)
+  })
+
+  ipcMain.handle('dashboard:update-port', async (_event, projectId) => {
+    return await projectManager.grotUpdatePort(projectId)
+  })
+}
+
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
@@ -106,6 +147,9 @@ app.whenReady().then(() => {
 
   // Register serial IPC handlers once (they're global, not per-window)
   registerSerialIpcHandlers()
+
+  // Register dashboard IPC handlers
+  registerDashboardIpcHandlers()
 
   // Set up serial callbacks to broadcast to all windows
   setupSerialCallbacks()

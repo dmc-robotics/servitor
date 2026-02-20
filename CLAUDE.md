@@ -33,23 +33,24 @@
 - **Options API** - Use Options API with `<script lang="ts">` in all Vue components (not Composition API). Using compisition api when importing components or libraries is acceptable - keep it in the 3rd party library's native API
 - **Hash mode routing** - Router uses `createWebHashHistory()` for Electron compatibility
 
+## General Guidance
+
+- Don't improvise. Use conventional code when possible. Always ask for confirmation before writing code that breaks standard patterns
+- Don't write code that fights against external libraries. Instead, suggest more conventional approahes.
+- Check your work
+- Favor maintainability, modularity, and simplicity over cleverness and complexity
+
 ## Project Structure
 
 **Key Points:**
 
 - Use constants for magic numbers
 
-## Theming System
-
 ### Using Theminator
 
 The app uses **theminator** - a simple OKLCH theming library for Vue 3 Options API apps.
 
 **Location:** `~/code/theminator` (local development package)
-
-### Chart Theming
-
-Charts automatically adapt to active theme via `--chart-1` through `--chart-5` CSS variables.
 
 ## Dashboard Page
 
@@ -112,7 +113,7 @@ Components are installed to `src/renderer/components/ui/`.
 
 **SidebarTrigger mobile visibility:**
 
-- Trigger should only show when sidebar becomes Sheet drawer on mobile (< 768px)
+- Trigger should only show when sidebar becomes Sheet drawer on mobile
 - Fix: Add `md:hidden` class directly in `SidebarTrigger.vue` component
 - Cleaner than adding per-use in Layout.vue
 
@@ -128,13 +129,6 @@ Components are installed to `src/renderer/components/ui/`.
 - Keep `index.html` minimal with no inline styles
 - All styling goes in `style.css` using theme CSS variables
 - **Critical**: Inline styles override theme system and break light/dark mode switching
-
-**General Guidance**
-
-- Don't improvise. Use conventional code when possible. Always ask for confirmation before writing code that breaks standard patterns
-- Don't write code that fights against external libraries. Instead, suggest more conventional approahes.
-- Check your work
-- Favor maintainability and simplicity over cleverness and complexity
 
 ## Development Commands
 

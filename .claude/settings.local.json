@@ -4,7 +4,10 @@
       "WebSearch",
       "Bash(cat:*)",
       "Bash(grep:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(npx shadcn-vue@latest add:*)",
+      "mcp__shadcn__get_add_command_for_items",
+      "Bash(npx vue-tsc:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

@@ -10,6 +10,19 @@ import {
 } from '../shared/types/serial'
 
 /**
+ * On macOS, the serialport npm package only returns /dev/tty.* paths.
+ * tty.* devices block on open waiting for carrier detect, which hangs
+ * with USB serial devices. cu.* ("calling unit") opens immediately.
+ * Both refer to the same physical device.
+ */
+function preferCuDevice(path: string): string {
+  if (process.platform === 'darwin') {
+    return path.replace('/dev/tty.', '/dev/cu.')
+  }
+  return path
+}
+
+/**
  * SerialManager handles all serial port communication
  * Uses callback pattern to stream data to renderer process
  */
@@ -28,7 +41,7 @@ export class SerialManager {
     try {
       const ports = await SerialPort.list()
       const portList = ports.map((port) => ({
-        path: port.path,
+        path: preferCuDevice(port.path),
         manufacturer: port.manufacturer,
         serialNumber: port.serialNumber,
         pnpId: port.pnpId,
