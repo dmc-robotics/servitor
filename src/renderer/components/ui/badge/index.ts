@@ -15,6 +15,9 @@ export const badgeVariants = cva(
         destructive:
           "border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/80",
         outline: "text-foreground",
+        // Fixed status colors — theme-independent
+        success: "border-green-600 text-green-600 dark:border-green-500 dark:text-green-400",
+        danger: "border-red-700 text-red-700 dark:border-red-500 dark:text-red-400",
       },
     },
     defaultVariants: {

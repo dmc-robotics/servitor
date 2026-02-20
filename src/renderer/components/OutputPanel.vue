@@ -89,8 +89,7 @@ export default defineComponent({
             <Button
               v-if="hasOutput && outputPanelOpen"
               variant="ghost"
-              size="icon"
-              class="h-7 w-7"
+              size="icon-sm"
               @click.stop="clearOutput"
               title="Clear output"
             >
@@ -118,7 +117,7 @@ export default defineComponent({
                 <!-- Entry header -->
                 <div class="flex items-center gap-2 text-xs text-muted-foreground">
                   <Badge
-                    :variant="isSuccess(entry) ? 'secondary' : 'destructive'"
+                    :variant="isSuccess(entry) ? 'secondary' : 'danger'"
                     class="uppercase text-[10px] px-1.5 py-0"
                   >
                     {{ entry.command }}
@@ -126,7 +125,7 @@ export default defineComponent({
                   <span class="font-medium text-foreground">{{ entry.projectTitle }}</span>
                   <span>{{ formatTimestamp(entry.timestamp) }}</span>
                   <Badge
-                    :variant="isSuccess(entry) ? 'outline' : 'destructive'"
+                    :variant="isSuccess(entry) ? 'outline' : 'danger'"
                     class="text-[10px] px-1.5 py-0"
                   >
                     exit {{ entry.output.exitCode }}

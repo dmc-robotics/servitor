@@ -1,7 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
+import { AppResult } from '../shared/types/app-result'
 import {
-  SerialResult,
   PortInfo,
   ConnectionStatus,
   SerialDataEvent
@@ -14,14 +14,14 @@ import {
 
 /**
  * Serial API for renderer process
- * All methods use consistent SerialResult pattern for error handling
+ * All methods use consistent AppResult pattern for error handling
  */
 export interface SerialAPI {
-  listPorts: () => Promise<SerialResult<PortInfo[]>>
-  connect: (config: { path: string; baudRate: number }) => Promise<SerialResult<void>>
-  disconnect: () => Promise<SerialResult<void>>
-  write: (data: string) => Promise<SerialResult<void>>
-  getStatus: () => Promise<SerialResult<ConnectionStatus>>
+  listPorts: () => Promise<AppResult<PortInfo[]>>
+  connect: (config: { path: string; baudRate: number }) => Promise<AppResult<void>>
+  disconnect: () => Promise<AppResult<void>>
+  write: (data: string) => Promise<AppResult<void>>
+  getStatus: () => Promise<AppResult<ConnectionStatus>>
   onData: (callback: (data: SerialDataEvent) => void) => () => void
   onConnectionLost: (callback: (reason: string) => void) => () => void
 }
@@ -57,14 +57,15 @@ const serialAPI: SerialAPI = {
  * Dashboard API for project management
  */
 export interface DashboardAPI {
-  getProjects: () => Promise<SerialResult<ProjectData[]>>
-  selectDirectory: () => Promise<SerialResult<string | null>>
-  addProject: (path: string, title: string, description: string) => Promise<SerialResult<ProjectData>>
-  updateProject: (id: string, updates: Partial<Pick<ProjectConfig, 'title' | 'description'>>) => Promise<SerialResult<ProjectData>>
-  removeProject: (id: string) => Promise<SerialResult<void>>
-  build: (projectId: string) => Promise<SerialResult<CommandOutput>>
-  load: (projectId: string) => Promise<SerialResult<CommandOutput>>
-  updatePort: (projectId: string) => Promise<SerialResult<{ port: string }>>
+  getProjects: () => Promise<AppResult<ProjectData[]>>
+  selectDirectory: () => Promise<AppResult<string | null>>
+  addProject: (path: string, title: string, description: string) => Promise<AppResult<ProjectData>>
+  updateProject: (id: string, updates: Partial<Pick<ProjectConfig, 'title' | 'description'>>) => Promise<AppResult<ProjectData>>
+  removeProject: (id: string) => Promise<AppResult<void>>
+  build: (projectId: string) => Promise<AppResult<CommandOutput>>
+  load: (projectId: string) => Promise<AppResult<CommandOutput>>
+  checkPort: (projectId: string) => Promise<AppResult<{ available: boolean }>>
+  updatePort: (projectId: string) => Promise<AppResult<{ port: string }>>
 }
 
 const dashboardAPI: DashboardAPI = {
@@ -75,6 +76,7 @@ const dashboardAPI: DashboardAPI = {
   removeProject: (id) => ipcRenderer.invoke('dashboard:remove-project', id),
   build: (projectId) => ipcRenderer.invoke('dashboard:build', projectId),
   load: (projectId) => ipcRenderer.invoke('dashboard:load', projectId),
+  checkPort: (projectId) => ipcRenderer.invoke('dashboard:check-port', projectId),
   updatePort: (projectId) => ipcRenderer.invoke('dashboard:update-port', projectId)
 }
 

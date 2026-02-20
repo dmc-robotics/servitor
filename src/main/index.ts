@@ -133,6 +133,10 @@ function registerDashboardIpcHandlers(): void {
     return await projectManager.grotLoad(projectId)
   })
 
+  ipcMain.handle('dashboard:check-port', async (_event, projectId) => {
+    return await projectManager.checkPort(projectId)
+  })
+
   ipcMain.handle('dashboard:update-port', async (_event, projectId) => {
     return await projectManager.grotUpdatePort(projectId)
   })

@@ -3,10 +3,10 @@
  * Used across main, preload, and renderer processes
  */
 
-import { SerialResult } from './serial'
+import { AppResult } from './app-result'
 
 /** Re-export for convenience */
-export type { SerialResult }
+export type { AppResult }
 
 /** Project metadata stored in userData/projects.json */
 export interface ProjectConfig {
@@ -23,6 +23,7 @@ export interface GrotConfig {
   port: string
   sketchPath: string
   baudRate: number
+  targetCore: string
 }
 
 /** Runtime project data: metadata + live .grotconfig reading */
@@ -31,6 +32,8 @@ export interface ProjectData {
   grotConfig: GrotConfig | null
   hasInoFile: boolean
   hasGrotConfig: boolean
+  directoryAccessible: boolean
+  portAvailable: boolean
 }
 
 /** Output from a grot command execution */

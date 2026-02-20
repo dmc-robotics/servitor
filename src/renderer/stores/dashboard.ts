@@ -21,6 +21,7 @@ interface DashboardState {
   projects: ProjectData[]
   loading: boolean
   operationState: Record<string, ProjectOperationState>
+  portScanErrors: Record<string, string>
   outputLog: OutputLogEntry[]
   outputPanelOpen: boolean
   nextLogId: number
@@ -31,6 +32,7 @@ export const useDashboardStore = defineStore('dashboard', {
     projects: [],
     loading: false,
     operationState: {},
+    portScanErrors: {},
     outputLog: [],
     outputPanelOpen: false,
     nextLogId: 1
@@ -63,6 +65,7 @@ export const useDashboardStore = defineStore('dashboard', {
         const result = await window.dashboardAPI.getProjects()
         if (result.success && result.data) {
           this.projects = result.data
+          this.portScanErrors = {}
           // Ensure operation state exists for each project
           for (const p of this.projects) {
             this.ensureOperationState(p.config.id)
@@ -128,6 +131,26 @@ export const useDashboardStore = defineStore('dashboard', {
       this.outputPanelOpen = true
     },
 
+    /** Check if a project's port is connected, updating badge state on failure */
+    async checkPortBeforeCommand(id: string, title: string, command: string): Promise<boolean> {
+      const portResult = await window.dashboardAPI.checkPort(id)
+      if (!portResult.success) {
+        const errorMsg = portResult.error ?? 'Port not available'
+        const index = this.projects.findIndex((p) => p.config.id === id)
+        if (index !== -1) {
+          this.projects[index].portAvailable = false
+        }
+        this.portScanErrors[id] = errorMsg
+        this.appendOutput(title, command, {
+          exitCode: 1,
+          stdout: '',
+          stderr: errorMsg
+        })
+        return false
+      }
+      return true
+    },
+
     /** Build a project with grot */
     async buildProject(id: string): Promise<void> {
       this.ensureOperationState(id)
@@ -159,6 +182,8 @@ export const useDashboardStore = defineStore('dashboard', {
       const title = project?.config.title ?? 'Unknown'
 
       try {
+        if (!await this.checkPortBeforeCommand(id, title, 'load')) return
+
         const result = await window.dashboardAPI.load(id)
         if (result.success && result.data) {
           this.appendOutput(title, 'load', result.data)
@@ -184,21 +209,29 @@ export const useDashboardStore = defineStore('dashboard', {
       try {
         const result = await window.dashboardAPI.updatePort(id)
         if (result.success && result.data) {
-          // Refresh the project to show updated port
+          // Refresh the project to show updated port; mark port as available since we just found it
           const index = this.projects.findIndex((p) => p.config.id === id)
           if (index !== -1 && this.projects[index].grotConfig) {
             this.projects[index].grotConfig!.port = result.data.port
+            this.projects[index].portAvailable = true
           }
+          delete this.portScanErrors[id]
           this.appendOutput(title, 'update-port', {
             exitCode: 0,
             stdout: `Port updated to ${result.data.port}`,
             stderr: ''
           })
         } else {
+          const errorMsg = result.error ?? 'Unknown error'
+          const index = this.projects.findIndex((p) => p.config.id === id)
+          if (index !== -1) {
+            this.projects[index].portAvailable = false
+          }
+          this.portScanErrors[id] = errorMsg
           this.appendOutput(title, 'update-port', {
             exitCode: 1,
             stdout: '',
-            stderr: result.error ?? 'Unknown error'
+            stderr: errorMsg
           })
         }
       } finally {

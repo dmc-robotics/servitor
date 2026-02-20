@@ -18,12 +18,8 @@ export type ValidBaudRate = (typeof VALID_BAUD_RATES)[number]
 /** Maximum messages to keep in buffer */
 export const MAX_BUFFER_SIZE = 500
 
-/** Generic result type for serial operations */
-export interface SerialResult<T = void> {
-  success: boolean
-  data?: T
-  error?: string
-}
+/** @deprecated Use AppResult from './app-result' instead */
+export type { AppResult as SerialResult } from './app-result'
 
 /** Serial port configuration */
 export interface SerialConfig {

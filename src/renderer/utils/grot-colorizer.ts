@@ -36,17 +36,35 @@ const ANSI_TO_CLASS: Record<number, string> = {
   47: 'bg-gray-200',
 }
 
-// Matches ANSI CSI sequences: ESC [ <codes> m
+// Matches ANSI CSI sequences: ESC [ <codes> m (SGR only)
 const ANSI_RE = /(\x1b\[[\d;]*m)/
+
+// Matches non-SGR ANSI sequences (cursor movement, erase line, show/hide cursor, etc.)
+// These end in letters other than 'm', e.g. \x1b[2K (erase), \x1b[1G (cursor), \x1b[?25l (hide cursor)
+const ANSI_NON_SGR_RE = /\x1b\[[\d;?]*[A-LN-Za-ln-z]/g
 
 /**
  * Convert a string containing ANSI escape codes to an HTML string with
  * Tailwind class-based <span> wrappers. HTML special characters in the
  * source text are escaped before processing.
+ *
+ * Non-color ANSI sequences (cursor movement, erase line, etc.) are stripped.
+ * Carriage returns are converted to newlines so spinner frames display as
+ * separate lines instead of overwriting each other.
  */
 export function ansiToHtml(text: string): string {
+  // Strip non-SGR ANSI codes (cursor movement, erase line, hide cursor, etc.)
+  let cleaned = text.replace(ANSI_NON_SGR_RE, '')
+
+  // Convert \r\n to \n first, then standalone \r to \n so spinner frames
+  // appear as separate lines instead of overwriting in whitespace-pre-wrap
+  cleaned = cleaned.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+
+  // Collapse runs of blank lines (spinner can produce many empty frames)
+  cleaned = cleaned.replace(/\n{3,}/g, '\n\n')
+
   // Escape HTML before we do anything else, so v-html is safe
-  const safe = text
+  const safe = cleaned
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
@@ -96,5 +114,5 @@ export function ansiToHtml(text: string): string {
  * Use this instead of ansiToHtml in OutputPanel if color rendering is unwanted.
  */
 export function stripAnsi(text: string): string {
-  return text.replace(/\x1b\[[\d;]*m/g, '')
+  return text.replace(/\x1b\[[\d;?]*[A-Za-z]/g, '')
 }

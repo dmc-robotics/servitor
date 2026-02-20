@@ -2,7 +2,7 @@
 import { defineComponent } from 'vue'
 import { mapState, mapActions } from 'pinia'
 import { useDashboardStore } from '@/stores/dashboard'
-import { ProjectData } from '../../../shared/types/dashboard'
+import { ProjectData } from '../../shared/types/dashboard'
 import { Skeleton } from '@/components/ui/skeleton'
 import ProjectCard from '@/components/ProjectCard.vue'
 import AddProjectDialog from '@/components/AddProjectDialog.vue'
@@ -29,7 +29,7 @@ export default defineComponent({
   },
 
   computed: {
-    ...mapState(useDashboardStore, ['projects', 'loading']),
+    ...mapState(useDashboardStore, ['projects', 'loading', 'portScanErrors']),
 
     operationState() {
       const store = useDashboardStore()
@@ -38,7 +38,7 @@ export default defineComponent({
   },
 
   methods: {
-    ...mapActions(useDashboardStore, ['loadProjects', 'removeProject']),
+    ...mapActions(useDashboardStore, ['loadProjects']),
 
     handleEdit(project: ProjectData): void {
       this.editingProject = project
@@ -46,13 +46,6 @@ export default defineComponent({
 
     handleEditClose(): void {
       this.editingProject = null
-    },
-
-    async handleRemove(project: ProjectData): Promise<void> {
-      if (!confirm(`Remove "${project.config.title}" from the list? (Files will not be deleted.)`)) {
-        return
-      }
-      await this.removeProject(project.config.id)
     }
   },
 
@@ -94,8 +87,8 @@ export default defineComponent({
           :key="project.config.id"
           :project="project"
           :operation-state="operationState(project.config.id)"
+          :port-scan-error="portScanErrors[project.config.id]"
           @edit="handleEdit"
-          @remove="handleRemove"
         />
       </div>
     </div>

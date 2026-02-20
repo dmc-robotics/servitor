@@ -2,28 +2,34 @@
 import { defineComponent, PropType } from 'vue'
 import { mapActions } from 'pinia'
 import { useDashboardStore } from '@/stores/dashboard'
-import { ProjectData } from '../../../shared/types/dashboard'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { ProjectData } from '../../shared/types/dashboard'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Hammer, Upload, RefreshCw, Pencil, Trash2, AlertTriangle, Loader2 } from 'lucide-vue-next'
+import { Badge } from '@/components/ui/badge'
+import { Separator } from '@/components/ui/separator'
+import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card'
+import {
+  Hammer, Upload, RefreshCw, Pencil, Loader2,
+  CheckCircle2, XCircle, AlertTriangle
+} from 'lucide-vue-next'
+
+type BadgeState = 'ok' | 'fail'
+
+interface StatusBadgeConfig {
+  label: string
+  state: BadgeState
+  reason: string
+}
 
 export default defineComponent({
   name: 'ProjectCard',
 
   components: {
-    Card,
-    CardContent,
-    CardHeader,
-    CardTitle,
-    CardDescription,
-    Button,
-    Hammer,
-    Upload,
-    RefreshCw,
-    Pencil,
-    Trash2,
-    AlertTriangle,
-    Loader2
+    Card, CardContent, CardHeader,
+    Button, Badge, Separator,
+    HoverCard, HoverCardContent, HoverCardTrigger,
+    Hammer, Upload, RefreshCw, Pencil, Loader2,
+    CheckCircle2, XCircle, AlertTriangle
   },
 
   props: {
@@ -34,10 +40,14 @@ export default defineComponent({
     operationState: {
       type: Object as PropType<{ building: boolean; loading: boolean; updatingPort: boolean }>,
       required: true
+    },
+    portScanError: {
+      type: String as PropType<string | undefined>,
+      default: undefined
     }
   },
 
-  emits: ['edit', 'remove'],
+  emits: ['edit'],
 
   computed: {
     id(): string {
@@ -48,15 +58,70 @@ export default defineComponent({
       return this.operationState.building || this.operationState.loading || this.operationState.updatingPort
     },
 
-    hasWarning(): boolean {
-      return !this.project.hasInoFile || !this.project.hasGrotConfig
+    boardName(): string {
+      return this.project.grotConfig?.fqbn || ''
     },
 
-    shortPath(): string {
-      const path = this.project.config.path
-      const parts = path.split('/')
-      // Show last 2-3 segments
-      return parts.slice(-2).join('/')
+    coreName(): string | null {
+      return this.project.grotConfig?.targetCore || null
+    },
+
+    projectDirName(): string {
+      const parts = this.project.config.path.replace(/\/+$/, '').split('/')
+      return parts[parts.length - 1] || ''
+    },
+
+    expectedInoFile(): string {
+      return `${this.projectDirName}.ino`
+    },
+
+    sketchDisplay(): string {
+      if (!this.project.grotConfig?.sketchPath) return ''
+      return `${this.project.grotConfig.sketchPath}/${this.expectedInoFile}`
+    },
+
+    portDisplay(): string {
+      return this.project.grotConfig?.port || 'not set'
+    },
+
+    baudDisplay(): string | number {
+      return this.project.grotConfig?.baudRate ?? ''
+    },
+
+    // --- Status badges ---
+
+    statusBadges(): StatusBadgeConfig[] {
+      return [
+        {
+          label: 'Config',
+          state: this.project.hasGrotConfig ? 'ok' : 'fail',
+          reason: `No .grotconfig file found in "${this.projectDirName}".`
+        },
+        {
+          label: 'Sketch',
+          state: this.project.hasInoFile ? 'ok' : 'fail',
+          reason: `Expected "${this.expectedInoFile}" not found in project directory.`
+        },
+        {
+          label: 'Port',
+          state: this.portBadgeState,
+          reason: this.portBadgeReason
+        }
+      ]
+    },
+
+    portBadgeState(): BadgeState {
+      if (!this.project.grotConfig?.port) return 'fail'
+      if (!this.project.portAvailable) return 'fail'
+      return 'ok'
+    },
+
+    portBadgeReason(): string {
+      if (this.portScanError) return this.portScanError
+      if (!this.project.grotConfig?.port) {
+        return 'No port configured. Use "Scan Port" to detect your Arduino.'
+      }
+      return `Port "${this.project.grotConfig.port}" is not currently connected.`
     }
   },
 
@@ -80,74 +145,110 @@ export default defineComponent({
 
 <template>
   <Card class="flex flex-col">
-    <CardHeader class="pb-2">
+    <!-- Zone 1: Identity -->
+    <CardHeader class="pb-3">
       <div class="flex items-start justify-between gap-2">
-        <div class="flex-1 min-w-0">
-          <div class="flex items-center gap-2">
-            <CardTitle class="text-base truncate">{{ project.config.title }}</CardTitle>
-            <AlertTriangle
-              v-if="hasWarning"
-              class="h-4 w-4 text-yellow-500 shrink-0"
-              title="Missing .ino or .grotconfig file"
-            />
-          </div>
-          <CardDescription class="text-xs mt-0.5 truncate" :title="project.config.path">
-            {{ shortPath }}
-          </CardDescription>
+        <div class="min-w-0">
+          <h3 class="text-base font-semibold truncate">{{ project.config.title }}</h3>
+          <p class="text-xs text-muted-foreground font-mono truncate mt-0.5" :title="project.config.path">
+            {{ project.config.path }}
+          </p>
         </div>
-        <div class="flex gap-1 shrink-0">
-          <Button
-            variant="ghost"
-            size="icon"
-            class="h-7 w-7"
-            @click="$emit('edit', project)"
-            :disabled="isAnyBusy"
-            title="Edit project"
-          >
-            <Pencil class="h-3.5 w-3.5" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            class="h-7 w-7 text-destructive hover:text-destructive"
-            @click="$emit('remove', project)"
-            :disabled="isAnyBusy"
-            title="Remove project"
-          >
-            <Trash2 class="h-3.5 w-3.5" />
-          </Button>
-        </div>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          class="shrink-0"
+          @click="$emit('edit', project)"
+          :disabled="isAnyBusy"
+          title="Edit project"
+        >
+          <Pencil class="h-3.5 w-3.5" />
+        </Button>
       </div>
-    </CardHeader>
-
-    <CardContent class="flex-1 flex flex-col gap-3 pt-0">
-      <!-- Description -->
-      <p v-if="project.config.description" class="text-sm text-muted-foreground line-clamp-2">
+      <p v-if="project.config.description" class="text-sm text-muted-foreground line-clamp-2 mt-1">
         {{ project.config.description }}
       </p>
+    </CardHeader>
 
-      <!-- Config info -->
-      <div class="text-xs text-muted-foreground space-y-1">
-        <div v-if="project.grotConfig" class="flex gap-4">
-          <span>
-            <span class="font-medium">Port:</span>
-            {{ project.grotConfig.port || 'not set' }}
-          </span>
-          <span class="truncate">
-            <span class="font-medium">Board:</span>
-            {{ project.grotConfig.fqbn.split(':').slice(-1)[0] || project.grotConfig.fqbn }}
-          </span>
+    <Separator />
+
+    <!-- Zone 2: Config details + status badges -->
+    <CardContent class="flex-1 py-3 space-y-3">
+      <div v-if="project.grotConfig" class="grid grid-cols-2 gap-x-6 gap-y-1 text-xs">
+        <div>
+          <span class="text-muted-foreground">Board</span>
+          <p class="font-medium">{{ boardName }}</p>
         </div>
-        <div v-if="!project.hasGrotConfig" class="text-yellow-600 dark:text-yellow-400">
-          No .grotconfig found
+        <div v-if="coreName">
+          <span class="text-muted-foreground">Core</span>
+          <p class="font-medium">{{ coreName }}</p>
         </div>
-        <div v-if="!project.hasInoFile" class="text-yellow-600 dark:text-yellow-400">
-          No .ino file found
+        <div>
+          <span class="text-muted-foreground">Port</span>
+          <p class="font-medium flex items-center gap-1">
+            {{ portDisplay }}
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              :disabled="isAnyBusy || !project.hasGrotConfig"
+              @click="handleUpdatePort"
+              title="Scan for Arduino and update port"
+            >
+              <Loader2 v-if="operationState.updatingPort" class="h-3 w-3 animate-spin" />
+              <RefreshCw v-else class="h-3 w-3" />
+            </Button>
+          </p>
+        </div>
+        <div>
+          <span class="text-muted-foreground">Baud</span>
+          <p class="font-medium">{{ baudDisplay }}</p>
+        </div>
+        <div v-if="sketchDisplay">
+          <span class="text-muted-foreground">Sketch</span>
+          <p class="font-medium truncate" :title="sketchDisplay">{{ sketchDisplay }}</p>
         </div>
       </div>
+      <div v-else class="text-xs text-muted-foreground">
+        No configuration available
+      </div>
 
-      <!-- Action buttons -->
-      <div class="flex gap-2 mt-auto pt-1">
+      <!-- Status badge row -->
+      <div class="flex items-center gap-2 pt-1">
+
+        <!-- Directory not accessible: show warning instead of badges -->
+        <template v-if="!project.directoryAccessible">
+          <AlertTriangle class="h-3.5 w-3.5 text-destructive shrink-0" />
+          <span class="text-xs text-destructive font-medium">Project files not found</span>
+        </template>
+
+        <!-- Badge row -->
+        <template v-else>
+          <template v-for="badge in statusBadges" :key="badge.label">
+            <HoverCard v-if="badge.state === 'fail'" :open-delay="300">
+              <HoverCardTrigger as-child>
+                <Badge variant="danger" class="cursor-default gap-1 text-xs">
+                  <XCircle class="h-3 w-3" />
+                  {{ badge.label }}
+                </Badge>
+              </HoverCardTrigger>
+              <HoverCardContent class="w-64 text-xs">
+                {{ badge.reason }}
+              </HoverCardContent>
+            </HoverCard>
+            <Badge v-else variant="success" class="cursor-default gap-1 text-xs">
+              <CheckCircle2 class="h-3 w-3" />
+              {{ badge.label }}
+            </Badge>
+          </template>
+        </template>
+      </div>
+    </CardContent>
+
+    <Separator />
+
+    <!-- Zone 3: Actions -->
+    <CardContent class="py-3">
+      <div class="flex items-center gap-2">
         <Button
           size="sm"
           class="flex-1"
@@ -172,17 +273,6 @@ export default defineComponent({
           Load
         </Button>
 
-        <Button
-          size="sm"
-          variant="secondary"
-          :disabled="isAnyBusy || !project.hasGrotConfig"
-          @click="handleUpdatePort"
-          title="Scan for Arduino and update port in .grotconfig"
-        >
-          <Loader2 v-if="operationState.updatingPort" class="h-4 w-4 mr-1.5 animate-spin" />
-          <RefreshCw v-else class="h-4 w-4 mr-1.5" />
-          Update .grotconfig
-        </Button>
       </div>
     </CardContent>
   </Card>

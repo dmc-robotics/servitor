@@ -1,5 +1,6 @@
 import { app, dialog } from 'electron'
 import { join } from 'path'
+import { randomUUID } from 'crypto'
 import * as fs from 'fs'
 import { execFile } from 'child_process'
 import { SerialPort } from 'serialport'
@@ -9,20 +10,14 @@ import {
   GrotConfig,
   CommandOutput
 } from '../shared/types/dashboard'
-import { SerialResult } from '../shared/types/serial'
+import { AppResult } from '../shared/types/app-result'
 
 const PROJECTS_FILE = 'projects.json'
 const GROT_TIMEOUT_MS = 5 * 60 * 1000 // 5 minutes
 
-/**
- * Generates a simple UUID v4
- */
+/** Generate a UUID v4 for project IDs */
 function generateId(): string {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-    const r = Math.random() * 16 | 0
-    const v = c === 'x' ? r : (r & 0x3 | 0x8)
-    return v.toString(16)
-  })
+  return randomUUID()
 }
 
 /**
@@ -42,7 +37,8 @@ function parseGrotConfig(content: string): GrotConfig {
     fqbn: get('fqbn'),
     port: get('port'),
     sketchPath: get('sketch_path'),
-    baudRate: getNum('baud_rate', 9600)
+    baudRate: getNum('baud_rate', 9600),
+    targetCore: get('target_core')
   }
 }
 
@@ -61,7 +57,7 @@ async function runGrot(args: string[], cwd: string): Promise<CommandOutput> {
   return new Promise((resolve) => {
     execFile('grot', args, { timeout: GROT_TIMEOUT_MS, cwd }, (error, stdout, stderr) => {
       resolve({
-        exitCode: error?.code != null ? (error.code as number) : (error ? 1 : 0),
+        exitCode: typeof error?.code === 'number' ? error.code : (error ? 1 : 0),
         stdout: stdout || '',
         stderr: stderr || ''
       })
@@ -70,20 +66,25 @@ async function runGrot(args: string[], cwd: string): Promise<CommandOutput> {
 }
 
 /**
- * Enrich a ProjectConfig with live data from the filesystem
+ * Enrich a ProjectConfig with live data from the filesystem.
+ * availablePorts is the list of port paths from SerialPort.list(), used to
+ * check whether the configured port is currently connected.
  */
-function enrichProject(config: ProjectConfig): ProjectData {
+function enrichProject(config: ProjectConfig, availablePorts: string[]): ProjectData {
   let grotConfig: GrotConfig | null = null
   let hasInoFile = false
   let hasGrotConfig = false
+  let directoryAccessible = false
 
   try {
     const entries = fs.readdirSync(config.path)
-    hasInoFile = entries.some((e) => e.endsWith('.ino'))
-    hasGrotConfig = entries.some((e) => e.endsWith('.grotconfig'))
+    directoryAccessible = true
+    const dirName = config.path.replace(/\/+$/, '').split('/').pop() || ''
+    hasInoFile = entries.includes(`${dirName}.ino`)
+    hasGrotConfig = entries.some((e) => e === '.grotconfig')
 
     if (hasGrotConfig) {
-      const grotFile = entries.find((e) => e.endsWith('.grotconfig'))!
+      const grotFile = entries.find((e) => e === '.grotconfig')!
       const content = fs.readFileSync(join(config.path, grotFile), 'utf-8')
       grotConfig = parseGrotConfig(content)
     }
@@ -91,7 +92,9 @@ function enrichProject(config: ProjectConfig): ProjectData {
     // Directory may be inaccessible - leave defaults
   }
 
-  return { config, grotConfig, hasInoFile, hasGrotConfig }
+  const portAvailable = !!(grotConfig?.port && availablePorts.includes(grotConfig.port))
+
+  return { config, grotConfig, hasInoFile, hasGrotConfig, directoryAccessible, portAvailable }
 }
 
 /**
@@ -130,11 +133,15 @@ export class ProjectManager {
 
   /**
    * Get all projects enriched with filesystem data.
+   * Fetches available serial ports once up front so each project can report
+   * whether its configured port is currently connected.
    */
-  async getProjects(): Promise<SerialResult<ProjectData[]>> {
+  async getProjects(): Promise<AppResult<ProjectData[]>> {
     try {
       const configs = this.readProjects()
-      const projects = configs.map(enrichProject)
+      const portList = await SerialPort.list()
+      const availablePorts = portList.map((p) => p.path)
+      const projects = configs.map((config) => enrichProject(config, availablePorts))
       return { success: true, data: projects }
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
@@ -144,13 +151,13 @@ export class ProjectManager {
   /**
    * Open a native directory picker dialog.
    */
-  async selectProjectDirectory(): Promise<SerialResult<string | null>> {
+  async selectProjectDirectory(): Promise<AppResult<string | null>> {
     try {
-      const result = dialog.showOpenDialogSync({
+      const result = await dialog.showOpenDialog({
         properties: ['openDirectory'],
         title: 'Select Arduino Project Directory'
       })
-      return { success: true, data: result ? result[0] : null }
+      return { success: true, data: result.canceled ? null : result.filePaths[0] }
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
     }
@@ -163,7 +170,7 @@ export class ProjectManager {
     path: string,
     title: string,
     description: string
-  ): Promise<SerialResult<ProjectData>> {
+  ): Promise<AppResult<ProjectData>> {
     try {
       if (!fs.existsSync(path)) {
         return { success: false, error: 'Directory does not exist' }
@@ -187,7 +194,8 @@ export class ProjectManager {
       projects.push(config)
       this.writeProjects(projects)
 
-      return { success: true, data: enrichProject(config) }
+      const portList = await SerialPort.list()
+      return { success: true, data: enrichProject(config, portList.map((p) => p.path)) }
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
     }
@@ -199,7 +207,7 @@ export class ProjectManager {
   async updateProject(
     id: string,
     updates: Partial<Pick<ProjectConfig, 'title' | 'description'>>
-  ): Promise<SerialResult<ProjectData>> {
+  ): Promise<AppResult<ProjectData>> {
     try {
       const projects = this.readProjects()
       const index = projects.findIndex((p) => p.id === id)
@@ -211,7 +219,8 @@ export class ProjectManager {
       if (updates.description !== undefined) projects[index].description = updates.description.trim()
 
       this.writeProjects(projects)
-      return { success: true, data: enrichProject(projects[index]) }
+      const portList = await SerialPort.list()
+      return { success: true, data: enrichProject(projects[index], portList.map((p) => p.path)) }
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
     }
@@ -220,7 +229,7 @@ export class ProjectManager {
   /**
    * Remove a project from the list (does NOT delete files on disk).
    */
-  async removeProject(id: string): Promise<SerialResult<void>> {
+  async removeProject(id: string): Promise<AppResult<void>> {
     try {
       const projects = this.readProjects()
       const index = projects.findIndex((p) => p.id === id)
@@ -242,7 +251,7 @@ export class ProjectManager {
   private findGrotConfigPath(config: ProjectConfig): string | null {
     try {
       const entries = fs.readdirSync(config.path)
-      const grotFile = entries.find((e) => e.endsWith('.grotconfig'))
+      const grotFile = entries.find((e) => e === '.grotconfig')
       return grotFile ? join(config.path, grotFile) : null
     } catch {
       return null
@@ -252,7 +261,7 @@ export class ProjectManager {
   /**
    * Run `grot build -c <configPath>` for a project.
    */
-  async grotBuild(projectId: string): Promise<SerialResult<CommandOutput>> {
+  async grotBuild(projectId: string): Promise<AppResult<CommandOutput>> {
     try {
       const projects = this.readProjects()
       const config = projects.find((p) => p.id === projectId)
@@ -271,7 +280,7 @@ export class ProjectManager {
   /**
    * Run `grot load -c <configPath>` for a project.
    */
-  async grotLoad(projectId: string): Promise<SerialResult<CommandOutput>> {
+  async grotLoad(projectId: string): Promise<AppResult<CommandOutput>> {
     try {
       const projects = this.readProjects()
       const config = projects.find((p) => p.id === projectId)
@@ -288,10 +297,42 @@ export class ProjectManager {
   }
 
   /**
+   * Check if a project's configured port is currently available.
+   */
+  async checkPort(projectId: string): Promise<AppResult<{ available: boolean }>> {
+    try {
+      const projects = this.readProjects()
+      const config = projects.find((p) => p.id === projectId)
+      if (!config) return { success: false, error: 'Project not found' }
+
+      const configPath = this.findGrotConfigPath(config)
+      if (!configPath) return { success: false, error: 'No .grotconfig file found in project directory' }
+
+      const content = fs.readFileSync(configPath, 'utf-8')
+      const grotConfig = parseGrotConfig(content)
+
+      if (!grotConfig.port) {
+        return { success: false, error: 'No port configured. Use "Scan Port" to detect your Arduino.' }
+      }
+
+      const ports = await SerialPort.list()
+      const available = ports.some((p) => p.path === grotConfig.port)
+
+      if (!available) {
+        return { success: false, error: `Port "${grotConfig.port}" is not connected. Plug in your Arduino and try again.` }
+      }
+
+      return { success: true, data: { available: true } }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+    }
+  }
+
+  /**
    * Detect the most likely Arduino port and update it in the project's .grotconfig.
    * Uses SerialPort.list() and heuristics (usbmodem, usbserial, Arduino manufacturer).
    */
-  async grotUpdatePort(projectId: string): Promise<SerialResult<{ port: string }>> {
+  async grotUpdatePort(projectId: string): Promise<AppResult<{ port: string }>> {
     try {
       const projects = this.readProjects()
       const config = projects.find((p) => p.id === projectId)

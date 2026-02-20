@@ -104,7 +104,7 @@ export default defineComponent({
   <Dialog :open="open" @update:open="handleOpenChange">
     <DialogTrigger as-child>
       <Button @click="open = true">
-        <Plus class="h-4 w-4 mr-2" />
+        <Plus class="h-4 w-4" />
         Add Project
       </Button>
     </DialogTrigger>
