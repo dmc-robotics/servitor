@@ -2,35 +2,35 @@
 import { defineComponent } from 'vue'
 import { mapState, mapActions } from 'pinia'
 import { useDashboardStore, OutputLogEntry } from '@/stores/dashboard'
-import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Trash2, ChevronDown, ChevronUp, Terminal } from 'lucide-vue-next'
+import { Trash2, Terminal, ArrowUp, ArrowDown } from 'lucide-vue-next'
 import { ansiToHtml } from '@/utils/grot-colorizer'
 
 export default defineComponent({
   name: 'OutputPanel',
 
   components: {
-    Card,
     Button,
     Badge,
     Separator,
-    Collapsible,
-    CollapsibleContent,
-    CollapsibleTrigger,
     ScrollArea,
     Trash2,
-    ChevronDown,
-    ChevronUp,
-    Terminal
+    Terminal,
+    ArrowUp,
+    ArrowDown
+  },
+
+  data() {
+    return {
+      currentEntryIndex: -1
+    }
   },
 
   computed: {
-    ...mapState(useDashboardStore, ['outputLog', 'outputPanelOpen']),
+    ...mapState(useDashboardStore, ['outputLog']),
 
     hasOutput(): boolean {
       return this.outputLog.length > 0
@@ -40,10 +40,17 @@ export default defineComponent({
   watch: {
     outputLog: {
       handler() {
-        if (this.outputPanelOpen) {
+        const newIndex = this.outputLog.length - 1
+        this.currentEntryIndex = newIndex
+        if (newIndex >= 0) {
           this.$nextTick(() => {
-            const viewport = this.$el?.querySelector('[data-radix-scroll-area-viewport]') as HTMLElement | undefined
-            if (viewport) viewport.scrollTop = viewport.scrollHeight
+            this.$nextTick(() => {
+              const el = this.$refs[`entry-${newIndex}`] as HTMLElement[] | HTMLElement | undefined
+              const target = Array.isArray(el) ? el[0] : el
+              if (target) {
+                target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+              }
+            })
           })
         }
       },
@@ -52,7 +59,7 @@ export default defineComponent({
   },
 
   methods: {
-    ...mapActions(useDashboardStore, ['clearOutput', 'toggleOutputPanel']),
+    ...mapActions(useDashboardStore, ['clearOutput']),
 
     formatTimestamp(ts: number): string {
       return new Date(ts).toLocaleTimeString()
@@ -64,92 +71,124 @@ export default defineComponent({
 
     renderOutput(text: string): string {
       return ansiToHtml(text)
+    },
+
+    scrollToEntry(index: number): void {
+      this.$nextTick(() => {
+        const el = this.$refs[`entry-${index}`] as HTMLElement[] | HTMLElement | undefined
+        const target = Array.isArray(el) ? el[0] : el
+        if (target) {
+          target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        }
+      })
+    },
+
+    navigateUp(): void {
+      if (this.currentEntryIndex > 0) {
+        this.currentEntryIndex--
+        this.scrollToEntry(this.currentEntryIndex)
+      }
+    },
+
+    navigateDown(): void {
+      if (this.currentEntryIndex < this.outputLog.length - 1) {
+        this.currentEntryIndex++
+        this.scrollToEntry(this.currentEntryIndex)
+      }
     }
   }
 })
 </script>
 
 <template>
-  <Card class="overflow-hidden">
-    <Collapsible :open="outputPanelOpen">
-      <!-- Panel header -->
-      <CollapsibleTrigger as-child>
-        <div
-          class="flex items-center justify-between px-4 py-3 cursor-pointer select-none hover:bg-muted/50 transition-colors"
-          @click="toggleOutputPanel"
+  <div class="flex flex-col h-full overflow-hidden">
+    <!-- Panel header -->
+    <div class="flex items-center justify-between px-4 py-2 border-t bg-background shrink-0">
+      <div class="flex items-center gap-2">
+        <Terminal class="h-4 w-4 text-muted-foreground" />
+        <span class="text-sm font-medium">Output</span>
+        <Badge v-if="hasOutput" variant="secondary" class="text-[10px] px-1.5 py-0">
+          {{ outputLog.length }}
+        </Badge>
+      </div>
+      <div class="flex items-center gap-1">
+        <Button
+          v-if="hasOutput"
+          variant="ghost"
+          size="icon-sm"
+          :disabled="currentEntryIndex <= 0"
+          @click="navigateUp"
+          title="Previous entry"
         >
-          <div class="flex items-center gap-2">
-            <Terminal class="h-4 w-4 text-muted-foreground" />
-            <span class="text-sm font-medium">Output</span>
-            <Badge v-if="hasOutput" variant="secondary" class="text-[10px] px-1.5 py-0">
-              {{ outputLog.length }}
-            </Badge>
-          </div>
-          <div class="flex items-center gap-1">
-            <Button
-              v-if="hasOutput && outputPanelOpen"
-              variant="ghost"
-              size="icon-sm"
-              @click.stop="clearOutput"
-              title="Clear output"
-            >
-              <Trash2 class="h-3.5 w-3.5" />
-            </Button>
-            <ChevronUp v-if="outputPanelOpen" class="h-4 w-4 text-muted-foreground" />
-            <ChevronDown v-else class="h-4 w-4 text-muted-foreground" />
+          <ArrowUp class="h-3.5 w-3.5" />
+        </Button>
+        <Button
+          v-if="hasOutput"
+          variant="ghost"
+          size="icon-sm"
+          :disabled="currentEntryIndex >= outputLog.length - 1"
+          @click="navigateDown"
+          title="Next entry"
+        >
+          <ArrowDown class="h-3.5 w-3.5" />
+        </Button>
+        <Button
+          v-if="hasOutput"
+          variant="ghost"
+          size="icon-sm"
+          @click="clearOutput"
+          title="Clear output"
+        >
+          <Trash2 class="h-3.5 w-3.5" />
+        </Button>
+      </div>
+    </div>
+
+    <!-- Output content -->
+    <ScrollArea class="flex-1">
+      <div class="p-4">
+        <div v-if="!hasOutput" class="text-muted-foreground italic text-sm">
+          No output yet. Run a build or load command.
+        </div>
+
+        <div v-for="(entry, index) in outputLog" :key="entry.id" :ref="`entry-${index}`">
+          <Separator v-if="index > 0" class="my-3" />
+
+          <div class="space-y-2">
+            <!-- Entry header -->
+            <div class="flex items-center gap-2 text-xs text-muted-foreground">
+              <Badge
+                :variant="isSuccess(entry) ? 'secondary' : 'danger'"
+                class="uppercase text-[10px] px-1.5 py-0"
+              >
+                {{ entry.command }}
+              </Badge>
+              <span class="font-medium text-foreground">{{ entry.projectTitle }}</span>
+              <span>{{ formatTimestamp(entry.timestamp) }}</span>
+              <Badge
+                :variant="isSuccess(entry) ? 'outline' : 'danger'"
+                class="text-[10px] px-1.5 py-0"
+              >
+                exit {{ entry.output.exitCode }}
+              </Badge>
+            </div>
+
+            <!-- stdout -->
+            <div
+              v-if="entry.output.stdout"
+              class="rounded-md bg-muted/50 px-3 py-2 font-mono text-xs leading-5 whitespace-pre-wrap text-foreground/80"
+              v-html="renderOutput(entry.output.stdout)"
+            />
+
+            <!-- stderr -->
+            <div
+              v-if="entry.output.stderr"
+              class="rounded-md bg-destructive/10 px-3 py-2 font-mono text-xs leading-5 whitespace-pre-wrap text-destructive"
+              v-html="renderOutput(entry.output.stderr)"
+            />
           </div>
         </div>
-      </CollapsibleTrigger>
-
-      <!-- Output content -->
-      <CollapsibleContent>
-        <Separator />
-        <ScrollArea class="h-56">
-          <div class="p-4">
-            <div v-if="!hasOutput" class="text-muted-foreground italic text-sm">
-              No output yet. Run a build or load command.
-            </div>
-
-            <div v-for="(entry, index) in outputLog" :key="entry.id">
-              <Separator v-if="index > 0" class="my-3" />
-
-              <div class="space-y-2">
-                <!-- Entry header -->
-                <div class="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Badge
-                    :variant="isSuccess(entry) ? 'secondary' : 'danger'"
-                    class="uppercase text-[10px] px-1.5 py-0"
-                  >
-                    {{ entry.command }}
-                  </Badge>
-                  <span class="font-medium text-foreground">{{ entry.projectTitle }}</span>
-                  <span>{{ formatTimestamp(entry.timestamp) }}</span>
-                  <Badge
-                    :variant="isSuccess(entry) ? 'outline' : 'danger'"
-                    class="text-[10px] px-1.5 py-0"
-                  >
-                    exit {{ entry.output.exitCode }}
-                  </Badge>
-                </div>
-
-                <!-- stdout -->
-                <div
-                  v-if="entry.output.stdout"
-                  class="rounded-md bg-muted/50 px-3 py-2 font-mono text-xs leading-5 whitespace-pre-wrap text-foreground/80"
-                  v-html="renderOutput(entry.output.stdout)"
-                />
-
-                <!-- stderr -->
-                <div
-                  v-if="entry.output.stderr"
-                  class="rounded-md bg-destructive/10 px-3 py-2 font-mono text-xs leading-5 whitespace-pre-wrap text-destructive"
-                  v-html="renderOutput(entry.output.stderr)"
-                />
-              </div>
-            </div>
-          </div>
-        </ScrollArea>
-      </CollapsibleContent>
-    </Collapsible>
-  </Card>
+      </div>
+    </ScrollArea>
+  </div>
 </template>

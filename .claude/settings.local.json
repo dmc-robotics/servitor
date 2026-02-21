@@ -8,7 +8,10 @@
       "Bash(npx shadcn-vue@latest add:*)",
       "mcp__shadcn__get_add_command_for_items",
       "Bash(npx vue-tsc:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "mcp__shadcn__view_items_in_registries",
+      "mcp__shadcn__get_item_examples_from_registries",
+      "Bash(npx electron-vite build:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

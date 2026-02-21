@@ -29,7 +29,6 @@ interface DashboardState {
   portScanErrors: Record<string, string>
   configValidation: Record<string, ConfigValidationResult>
   outputLog: OutputLogEntry[]
-  outputPanelOpen: boolean
   nextLogId: number
 }
 
@@ -41,7 +40,6 @@ export const useDashboardStore = defineStore('dashboard', {
     portScanErrors: {},
     configValidation: {},
     outputLog: [],
-    outputPanelOpen: false,
     nextLogId: 1
   }),
 
@@ -137,7 +135,6 @@ export const useDashboardStore = defineStore('dashboard', {
         output,
         timestamp: Date.now()
       })
-      this.outputPanelOpen = true
     },
 
     /** Validate a single project's .grotconfig using grot validate */
@@ -301,10 +298,6 @@ export const useDashboardStore = defineStore('dashboard', {
 
     clearOutput(): void {
       this.outputLog = []
-    },
-
-    toggleOutputPanel(): void {
-      this.outputPanelOpen = !this.outputPanelOpen
     }
   }
 })

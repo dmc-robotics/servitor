@@ -4,6 +4,7 @@ import { mapState, mapActions } from 'pinia'
 import { useDashboardStore } from '@/stores/dashboard'
 import { ProjectData } from '../../shared/types/dashboard'
 import { Skeleton } from '@/components/ui/skeleton'
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable'
 import ProjectCard from '@/components/ProjectCard.vue'
 import AddProjectDialog from '@/components/AddProjectDialog.vue'
 import EditProjectDialog from '@/components/EditProjectDialog.vue'
@@ -15,6 +16,9 @@ export default defineComponent({
 
   components: {
     Skeleton,
+    ResizablePanelGroup,
+    ResizablePanel,
+    ResizableHandle,
     ProjectCard,
     AddProjectDialog,
     EditProjectDialog,
@@ -66,51 +70,58 @@ export default defineComponent({
 </script>
 
 <template>
-  <div class="flex flex-col h-full">
-    <!-- Scrollable content area -->
-    <div class="flex-1 overflow-y-auto space-y-6">
-      <!-- Header -->
-      <div class="flex items-center justify-between">
-        <h1 class="text-2xl font-bold">Projects</h1>
-        <AddProjectDialog />
+  <ResizablePanelGroup direction="vertical" class="h-full">
+    <!-- Projects area -->
+    <ResizablePanel :default-size="75" :min-size="30">
+      <div class="h-full overflow-y-auto space-y-6 p-0">
+        <!-- Header -->
+        <div class="flex items-center justify-between">
+          <h1 class="text-2xl font-bold">Projects</h1>
+          <AddProjectDialog />
+        </div>
+
+        <!-- Loading skeletons -->
+        <div v-if="loading" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Skeleton v-for="n in 4" :key="n" class="h-48 rounded-lg" />
+        </div>
+
+        <!-- Empty state -->
+        <div
+          v-else-if="projects.length === 0"
+          class="flex flex-col items-center justify-center gap-4 py-24 text-muted-foreground"
+        >
+          <FolderOpen class="h-12 w-12 opacity-40" />
+          <p class="text-lg">No projects yet</p>
+          <p class="text-sm">Click "Add Project" to add an Arduino project directory.</p>
+        </div>
+
+        <!-- Project grid -->
+        <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <ProjectCard
+            v-for="project in projects"
+            :key="project.config.id"
+            :project="project"
+            :operation-state="operationState(project.config.id)"
+            :port-scan-error="portScanErrors[project.config.id]"
+            :config-valid="configValidation[project.config.id]?.valid"
+            @edit="handleEdit"
+          />
+        </div>
       </div>
+    </ResizablePanel>
 
-      <!-- Loading skeletons -->
-      <div v-if="loading" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Skeleton v-for="n in 4" :key="n" class="h-48 rounded-lg" />
-      </div>
+    <!-- Drag handle -->
+    <ResizableHandle with-handle />
 
-      <!-- Empty state -->
-      <div
-        v-else-if="projects.length === 0"
-        class="flex flex-col items-center justify-center gap-4 py-24 text-muted-foreground"
-      >
-        <FolderOpen class="h-12 w-12 opacity-40" />
-        <p class="text-lg">No projects yet</p>
-        <p class="text-sm">Click "Add Project" to add an Arduino project directory.</p>
-      </div>
+    <!-- Output panel -->
+    <ResizablePanel :default-size="25" :min-size="10">
+      <OutputPanel />
+    </ResizablePanel>
 
-      <!-- Project grid -->
-      <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <ProjectCard
-          v-for="project in projects"
-          :key="project.config.id"
-          :project="project"
-          :operation-state="operationState(project.config.id)"
-          :port-scan-error="portScanErrors[project.config.id]"
-          :config-valid="configValidation[project.config.id]?.valid"
-          @edit="handleEdit"
-        />
-      </div>
-    </div>
-
-    <!-- Output panel pinned to bottom -->
-    <OutputPanel />
-
-    <!-- Edit dialog (rendered outside grid to avoid layout issues) -->
+    <!-- Edit dialog (rendered outside panels to avoid layout issues) -->
     <EditProjectDialog
       :project="editingProject"
       @close="handleEditClose"
     />
-  </div>
+  </ResizablePanelGroup>
 </template>
