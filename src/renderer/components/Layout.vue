@@ -22,16 +22,16 @@
             <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton as-child>
-                  <router-link to="/dashboard">
-                    <LayoutDashboard />
-                    <span>Dashboard</span>
+                  <router-link to="/projects">
+                    <Blocks />
+                    <span>Projects</span>
                   </router-link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton as-child>
                   <router-link to="/serial">
-                    <Radio />
+                    <Cable />
                     <span>Serial Monitor</span>
                   </router-link>
                 </SidebarMenuButton>
@@ -64,7 +64,7 @@
           </div>
         </div>
       </header>
-      <div class="flex flex-1 flex-col gap-4 p-4 min-h-0">
+      <div class="flex flex-1 flex-col gap-4 min-h-0">
         <router-view />
       </div>
     </SidebarInset>
@@ -75,7 +75,7 @@
 import { defineComponent } from 'vue'
 import { mapState } from 'pinia'
 import { useSerialStore } from '@/stores/serial'
-import { LayoutDashboard, Radio, Settings } from 'lucide-vue-next'
+import { Blocks, Cable, Settings } from 'lucide-vue-next'
 import {
   Sidebar,
   SidebarContent,
@@ -96,8 +96,8 @@ import {
 export default defineComponent({
   name: 'Layout',
   components: {
-    LayoutDashboard,
-    Radio,
+    Blocks,
+    Cable,
     Settings,
     Sidebar,
     SidebarContent,
@@ -119,7 +119,7 @@ export default defineComponent({
 
     pageTitle(): string {
       const route = this.$route
-      if (route.name === 'Dashboard') return 'Dashboard'
+      if (route.name === 'Projects') return 'Projects'
       if (route.name === 'Serial') return 'Serial Monitor'
       if (route.name === 'Settings') return 'Settings'
       return 'Servitor'

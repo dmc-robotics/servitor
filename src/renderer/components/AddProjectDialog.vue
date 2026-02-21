@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Plus, FolderOpen } from 'lucide-vue-next'
+import { CirclePlus, FolderOpen } from 'lucide-vue-next'
 
 export default defineComponent({
   name: 'AddProjectDialog',
@@ -30,7 +30,7 @@ export default defineComponent({
     Input,
     Label,
     Textarea,
-    Plus,
+    CirclePlus,
     FolderOpen
   },
 
@@ -104,7 +104,7 @@ export default defineComponent({
   <Dialog :open="open" @update:open="handleOpenChange">
     <DialogTrigger as-child>
       <Button @click="open = true">
-        <Plus class="h-4 w-4" />
+        <CirclePlus class="h-4 w-4" />
         Add Project
       </Button>
     </DialogTrigger>

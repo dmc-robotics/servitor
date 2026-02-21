@@ -12,7 +12,7 @@ import OutputPanel from '@/components/OutputPanel.vue'
 import { FolderOpen } from 'lucide-vue-next'
 
 export default defineComponent({
-  name: 'Dashboard',
+  name: 'Projects',
 
   components: {
     Skeleton,
@@ -73,10 +73,9 @@ export default defineComponent({
   <ResizablePanelGroup direction="vertical" class="h-full">
     <!-- Projects area -->
     <ResizablePanel :default-size="75" :min-size="30">
-      <div class="h-full overflow-y-auto space-y-6 p-0">
+      <div class="h-full overflow-y-auto space-y-6 p-4">
         <!-- Header -->
-        <div class="flex items-center justify-between">
-          <h1 class="text-2xl font-bold">Projects</h1>
+        <div class="flex items-center justify-end">
           <AddProjectDialog />
         </div>
 
@@ -111,7 +110,7 @@ export default defineComponent({
     </ResizablePanel>
 
     <!-- Drag handle -->
-    <ResizableHandle with-handle />
+    <ResizableHandle />
 
     <!-- Output panel -->
     <ResizablePanel :default-size="25" :min-size="10">

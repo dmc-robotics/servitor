@@ -54,6 +54,21 @@ const serialAPI: SerialAPI = {
 }
 
 /**
+ * App-level API for general OS operations
+ */
+export interface AppAPI {
+  openInTerminal: (path: string, terminal: 'alacritty' | 'terminal') => Promise<AppResult<void>>
+  openInEditor: (filePath: string, editor: 'textedit' | 'sublime') => Promise<AppResult<void>>
+  getVersions: () => Promise<AppResult<{ servitor: string; grot: string }>>
+}
+
+const appAPI: AppAPI = {
+  openInTerminal: (path, terminal) => ipcRenderer.invoke('app:open-in-terminal', { path, terminal }),
+  openInEditor: (filePath, editor) => ipcRenderer.invoke('app:open-in-editor', { filePath, editor }),
+  getVersions: () => ipcRenderer.invoke('app:get-versions')
+}
+
+/**
  * Dashboard API for project management
  */
 export interface DashboardAPI {
@@ -100,6 +115,7 @@ if (process.contextIsolated) {
     contextBridge.exposeInMainWorld('electron', electronAPI)
     contextBridge.exposeInMainWorld('serialAPI', serialAPI)
     contextBridge.exposeInMainWorld('dashboardAPI', dashboardAPI)
+    contextBridge.exposeInMainWorld('appAPI', appAPI)
   } catch (error) {
     console.error(error)
   }
@@ -110,4 +126,6 @@ if (process.contextIsolated) {
   window.serialAPI = serialAPI
   // @ts-ignore (define in dts)
   window.dashboardAPI = dashboardAPI
+  // @ts-ignore (define in dts)
+  window.appAPI = appAPI
 }

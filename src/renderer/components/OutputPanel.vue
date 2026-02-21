@@ -114,7 +114,7 @@ export default defineComponent({
       <div class="flex items-center gap-1">
         <Button
           v-if="hasOutput"
-          variant="ghost"
+          variant="outline"
           size="icon-sm"
           :disabled="currentEntryIndex <= 0"
           @click="navigateUp"
@@ -124,7 +124,7 @@ export default defineComponent({
         </Button>
         <Button
           v-if="hasOutput"
-          variant="ghost"
+          variant="outline"
           size="icon-sm"
           :disabled="currentEntryIndex >= outputLog.length - 1"
           @click="navigateDown"
@@ -134,7 +134,7 @@ export default defineComponent({
         </Button>
         <Button
           v-if="hasOutput"
-          variant="ghost"
+          variant="outline"
           size="icon-sm"
           @click="clearOutput"
           title="Clear output"

@@ -24,6 +24,7 @@ export interface GrotConfig {
   sketchPath: string
   baudRate: number
   targetCore: string
+  flashSplit: number | null
 }
 
 /** Runtime project data: metadata + live .grotconfig reading */

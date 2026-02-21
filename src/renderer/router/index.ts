@@ -7,12 +7,12 @@ import type { RouteRecordRaw } from 'vue-router'
 const routes: RouteRecordRaw[] = [
   {
     path: '/',
-    redirect: '/dashboard'
+    redirect: '/projects'
   },
   {
-    path: '/dashboard',
-    name: 'Dashboard',
-    component: () => import('../views/Dashboard.vue')
+    path: '/projects',
+    name: 'Projects',
+    component: () => import('../views/Projects.vue')
   },
   {
     path: '/serial',

@@ -34,12 +34,17 @@ function parseGrotConfig(content: string): GrotConfig {
     const match = content.match(new RegExp(`^${key}\\s*=\\s*(\\d+)`, 'm'))
     return match ? parseInt(match[1], 10) : fallback
   }
+  const getFloat = (key: string): number | null => {
+    const match = content.match(new RegExp(`^${key}\\s*=\\s*([0-9]*\\.?[0-9]+)`, 'm'))
+    return match ? parseFloat(match[1]) : null
+  }
   return {
     fqbn: get('fqbn'),
     port: get('port'),
     sketchPath: get('sketch_path'),
     baudRate: getNum('baud_rate', 9600),
-    targetCore: get('target_core')
+    targetCore: get('target_core'),
+    flashSplit: getFloat('flash_split')
   }
 }
 

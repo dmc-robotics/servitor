@@ -14,10 +14,18 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogDescription
+} from '@/components/ui/dialog'
 import SerialMonitor from '@/components/SerialMonitor.vue'
 import SerialPlotter from '@/components/SerialPlotter.vue'
 import { VALID_BAUD_RATES, DEFAULT_BAUD_RATE } from '../../shared/types/serial'
-import { RefreshCw, Trash2, ArrowUp, Save } from 'lucide-vue-next'
+import { RefreshCw, Trash2, ArrowUp, Save, CircleHelp } from 'lucide-vue-next'
 
 export default defineComponent({
   name: 'Serial',
@@ -38,10 +46,17 @@ export default defineComponent({
     SerialPlotter,
     Textarea,
     Switch,
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+    DialogDescription,
     RefreshCw,
     Trash2,
     ArrowUp,
-    Save
+    Save,
+    CircleHelp
   },
   data() {
     return {
@@ -129,11 +144,14 @@ export default defineComponent({
     }
   },
   async mounted() {
-    // Load available ports on mount
     await this.loadPorts()
 
-    // Pre-select first port if available
-    if (this.availablePorts.length > 0) {
+    if (this.connected && this.port) {
+      // Restore selection from active connection
+      this.selectedPort = this.port
+      this.selectedBaudRate = this.baudRate
+    } else if (this.availablePorts.length > 0) {
+      // Pre-select first port if available
       this.selectedPort = this.availablePorts[0].path
     }
   }
@@ -141,7 +159,7 @@ export default defineComponent({
 </script>
 
 <template>
-  <div class="flex flex-col gap-4 h-full">
+  <div class="flex flex-col gap-4 h-full p-4">
     <!-- Connection Controls -->
     <Card>
       <CardContent class="px-4 py-3">
@@ -217,6 +235,66 @@ export default defineComponent({
               <div class="flex items-center gap-2">
                 <Switch v-model="showRaw" />
                 <span class="text-xs text-muted-foreground">Raw</span>
+                <Dialog>
+                  <DialogTrigger as-child>
+                    <button class="rounded-full text-primary hover:opacity-70 transition-opacity focus:outline-none">
+                      <CircleHelp class="h-5 w-5" :stroke-width="2" />
+                    </button>
+                  </DialogTrigger>
+                  <DialogContent class="max-w-lg">
+                    <DialogHeader>
+                      <DialogTitle>Serial Data Protocol</DialogTitle>
+                      <DialogDescription>
+                        How to format data sent from your Arduino over serial.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div class="space-y-4 text-sm">
+                      <section>
+                        <h3 class="font-semibold mb-1">Key/Value Pairs</h3>
+                        <p class="text-muted-foreground mb-2">Send named values separated by a colon. Multiple pairs can be sent on one line, separated by commas.</p>
+                        <pre class="bg-muted rounded px-3 py-2 font-mono text-xs">temperature:23.4
+rpm:1200,voltage:4.97</pre>
+                      </section>
+                      <section>
+                        <h3 class="font-semibold mb-1">Plain Text</h3>
+                        <p class="text-muted-foreground mb-2">Any line without a colon is treated as plain text and shown as-is in the monitor.</p>
+                        <pre class="bg-muted rounded px-3 py-2 font-mono text-xs">Setup complete.
+Loop started.</pre>
+                      </section>
+                      <section>
+                        <h3 class="font-semibold mb-1">Plotter Values</h3>
+                        <p class="text-muted-foreground mb-2">Key/value pairs are automatically graphed in the Plotter tab. Use consistent key names across lines to build traces.</p>
+                        <pre class="bg-muted rounded px-3 py-2 font-mono text-xs">x:0.00,y:1.00
+x:0.10,y:0.99
+x:0.20,y:0.98</pre>
+                      </section>
+                      <section>
+                        <h3 class="font-semibold mb-1">Arduino Example</h3>
+                        <p class="text-muted-foreground mb-2">Send key/value pairs from your sketch using <span class="font-mono">Serial.print()</span>:</p>
+                        <pre class="bg-muted rounded px-3 py-2 font-mono text-xs">void setup() {
+  Serial.begin(9600);
+  Serial.println("Setup complete.");
+}
+
+void loop() {
+  float temp = readTemperature();
+  int rpm  = readRPM();
+
+  Serial.print("temperature:");
+  Serial.print(temp);
+  Serial.print(",rpm:");
+  Serial.println(rpm);   // println ends the line
+
+  delay(100);
+}</pre>
+                      </section>
+                      <section>
+                        <h3 class="font-semibold mb-1">Raw Mode</h3>
+                        <p class="text-muted-foreground">Enable <span class="font-mono">Raw</span> to see all bytes as received, bypassing parsing.</p>
+                      </section>
+                    </div>
+                  </DialogContent>
+                </Dialog>
               </div>
             </div>
             <div class="flex gap-1">

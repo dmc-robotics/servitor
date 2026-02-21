@@ -4,7 +4,7 @@
   "description": "Arduino serial monitor, plotter, and project management tool",
   "main": "./out/main/index.js",
   "author": "Servitor",
-  "homepage": "https://github.com/servitor",
+  "homepage": "https://github.com/fungus-wine/servitor",
   "scripts": {
     "format": "prettier --write .",
     "lint": "eslint . --ext .js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts,.vue --fix",

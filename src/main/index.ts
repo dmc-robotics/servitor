@@ -1,5 +1,6 @@
 import { app, shell, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
+import { spawn, execFile } from 'child_process'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { SerialManager } from './serial-manager'
 import { ProjectManager } from './project-manager'
@@ -151,6 +152,51 @@ function registerDashboardIpcHandlers(): void {
   })
 }
 
+/**
+ * Register IPC handlers for general app operations
+ */
+function registerAppIpcHandlers(): void {
+  ipcMain.handle('app:open-in-terminal', async (_event, { path, terminal }: { path: string; terminal: 'alacritty' | 'terminal' }) => {
+    try {
+      if (terminal === 'alacritty') {
+        spawn('alacritty', ['--working-directory', path], { detached: true, stdio: 'ignore' }).unref()
+      } else {
+        spawn('open', ['-a', 'Terminal', path], { detached: true, stdio: 'ignore' }).unref()
+      }
+      return { success: true }
+    } catch (err) {
+      return { success: false, error: String(err) }
+    }
+  })
+
+  ipcMain.handle('app:get-versions', async () => {
+    const servitor = app.getVersion()
+    let grot = 'unknown'
+    try {
+      const result = await new Promise<string>((resolve, reject) => {
+        execFile('grot', ['--version'], { timeout: 5000 }, (error, stdout, stderr) => {
+          if (error) reject(error)
+          else resolve((stdout || stderr).trim())
+        })
+      })
+      grot = result.match(/\d+\.\d+[\.\d]*/)?.[0] ?? result
+    } catch {
+      grot = 'not found'
+    }
+    return { success: true, data: { servitor, grot } }
+  })
+
+  ipcMain.handle('app:open-in-editor', async (_event, { filePath, editor }: { filePath: string; editor: 'textedit' | 'sublime' }) => {
+    try {
+      const appName = editor === 'sublime' ? 'Sublime Text' : 'TextEdit'
+      spawn('open', ['-a', appName, filePath], { detached: true, stdio: 'ignore' }).unref()
+      return { success: true }
+    } catch (err) {
+      return { success: false, error: String(err) }
+    }
+  })
+}
+
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
@@ -163,6 +209,9 @@ app.whenReady().then(() => {
 
   // Register dashboard IPC handlers
   registerDashboardIpcHandlers()
+
+  // Register app IPC handlers
+  registerAppIpcHandlers()
 
   // Set up serial callbacks to broadcast to all windows
   setupSerialCallbacks()

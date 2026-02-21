@@ -1,15 +1,16 @@
 <script lang="ts">
 import { defineComponent, PropType } from 'vue'
-import { mapActions } from 'pinia'
+import { mapActions, mapState } from 'pinia'
 import { useDashboardStore } from '@/stores/dashboard'
+import { useSettingsStore } from '@/stores/settings'
 import { ProjectData } from '../../shared/types/dashboard'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
+import ClickableBadge from '@/components/ClickableBadge.vue'
 import { Separator } from '@/components/ui/separator'
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card'
 import {
-  Hammer, Upload, RefreshCw, Pencil, Loader2,
+  Hammer, Upload, Pencil, Loader2,
   CheckCircle2, XCircle, AlertTriangle
 } from 'lucide-vue-next'
 
@@ -26,9 +27,9 @@ export default defineComponent({
 
   components: {
     Card, CardContent, CardHeader,
-    Button, Badge, Separator,
+    Button, ClickableBadge, Separator,
     HoverCard, HoverCardContent, HoverCardTrigger,
-    Hammer, Upload, RefreshCw, Pencil, Loader2,
+    Hammer, Upload, Pencil, Loader2,
     CheckCircle2, XCircle, AlertTriangle
   },
 
@@ -54,6 +55,8 @@ export default defineComponent({
   emits: ['edit'],
 
   computed: {
+    ...mapState(useSettingsStore, ['terminalApp', 'editorApp']),
+
     id(): string {
       return this.project.config.id
     },
@@ -68,6 +71,19 @@ export default defineComponent({
 
     coreName(): string | null {
       return this.project.grotConfig?.targetCore || null
+    },
+
+    coreMemoryPercent(): string | null {
+      const split = this.project.grotConfig?.flashSplit
+      if (split == null) return null
+      return `${Math.round(split * 100)}%`
+    },
+
+    coreDisplay(): string | null {
+      if (!this.coreName) return null
+      return this.coreMemoryPercent
+        ? `${this.coreName} ${this.coreMemoryPercent}`
+        : this.coreName
     },
 
     projectDirName(): string {
@@ -156,32 +172,55 @@ export default defineComponent({
 
     async handleUpdatePort(): Promise<void> {
       await this.updatePort(this.id)
+    },
+
+    openInTerminal(): void {
+      window.appAPI.openInTerminal(this.project.config.path, this.terminalApp)
+    },
+
+    openFileInEditor(filePath: string): void {
+      window.appAPI.openInEditor(filePath, this.editorApp)
+    },
+
+    handleBadgeClick(label: string): void {
+      const path = this.project.config.path
+      if (label === 'Config') {
+        this.openFileInEditor(`${path}/.grotconfig`)
+      } else if (label === 'Sketch') {
+        this.openFileInEditor(`${path}/${this.expectedInoFile}`)
+      } else if (label === 'Port') {
+        this.handleUpdatePort()
+      }
     }
   }
 })
 </script>
 
 <template>
-  <Card class="flex flex-col">
+  <Card class="flex flex-col min-w-[280px]">
     <!-- Zone 1: Identity -->
     <CardHeader class="pb-3">
-      <div class="flex items-start justify-between gap-2">
-        <div class="min-w-0">
+      <div class="min-w-0">
+        <div class="flex items-center gap-1">
           <h3 class="text-base font-semibold truncate">{{ project.config.title }}</h3>
-          <p class="text-xs text-muted-foreground font-mono truncate mt-0.5" :title="project.config.path">
-            {{ project.config.path }}
-          </p>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            class="shrink-0"
+            @click="$emit('edit', project)"
+            :disabled="isAnyBusy"
+            title="Edit project"
+          >
+            <Pencil class="h-3.5 w-3.5" />
+          </Button>
         </div>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          class="shrink-0"
-          @click="$emit('edit', project)"
-          :disabled="isAnyBusy"
-          title="Edit project"
+        <button
+          class="flex items-center text-xs text-muted-foreground font-mono mt-0.5 hover:text-foreground hover:underline cursor-pointer group w-full min-w-0 overflow-hidden"
+          :title="`Open in terminal: ${project.config.path}`"
+          @click="openInTerminal"
         >
-          <Pencil class="h-3.5 w-3.5" />
-        </Button>
+          <span class="truncate">{{ project.config.path }}</span>
+        </button>
       </div>
       <p v-if="project.config.description" class="text-sm text-muted-foreground line-clamp-2 mt-1">
         {{ project.config.description }}
@@ -193,38 +232,23 @@ export default defineComponent({
     <!-- Zone 2: Config details + status badges -->
     <CardContent class="flex-1 py-3 space-y-3">
       <div v-if="project.grotConfig" class="grid grid-cols-2 gap-x-6 gap-y-1 text-xs">
-        <div>
+        <div class="min-w-0">
           <span class="text-muted-foreground">Board</span>
-          <p class="font-medium">{{ boardName }}</p>
+          <p class="font-medium truncate" :title="boardName">{{ boardName }}</p>
         </div>
-        <div v-if="coreName">
+        <div v-if="coreDisplay" class="min-w-0">
           <span class="text-muted-foreground">Core</span>
-          <p class="font-medium">{{ coreName }}</p>
+          <p class="font-medium truncate" :title="coreDisplay">{{ coreDisplay }}</p>
         </div>
-        <div>
+        <div class="min-w-0">
           <span class="text-muted-foreground">Port</span>
-          <p class="font-medium flex items-center gap-1">
-            {{ portDisplay }}
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              :disabled="isAnyBusy || !project.hasGrotConfig"
-              @click="handleUpdatePort"
-              title="Scan for Arduino and update port"
-            >
-              <Loader2 v-if="operationState.updatingPort" class="h-3 w-3 animate-spin" />
-              <RefreshCw v-else class="h-3 w-3" />
-            </Button>
-          </p>
+          <p class="font-medium truncate" :title="portDisplay">{{ portDisplay }}</p>
         </div>
-        <div>
+        <div class="min-w-0">
           <span class="text-muted-foreground">Baud</span>
-          <p class="font-medium">{{ baudDisplay }}</p>
+          <p class="font-medium truncate" :title="baudDisplay">{{ baudDisplay }}</p>
         </div>
-        <div v-if="sketchDisplay">
-          <span class="text-muted-foreground">Sketch</span>
-          <p class="font-medium truncate" :title="sketchDisplay">{{ sketchDisplay }}</p>
-        </div>
+
       </div>
       <div v-else class="text-xs text-muted-foreground">
         No configuration available
@@ -244,19 +268,32 @@ export default defineComponent({
           <template v-for="badge in statusBadges" :key="badge.label">
             <HoverCard v-if="badge.state === 'fail'" :open-delay="300">
               <HoverCardTrigger as-child>
-                <Badge variant="danger" class="cursor-default gap-1 text-xs">
-                  <XCircle class="h-3 w-3" />
+                <ClickableBadge
+                  variant="danger"
+                  class="gap-1 text-xs"
+                  :disabled="badge.label === 'Port' && operationState.updatingPort"
+                  @click="handleBadgeClick(badge.label)"
+                >
+                  <Loader2 v-if="badge.label === 'Port' && operationState.updatingPort" class="h-3 w-3 animate-spin" />
+                  <XCircle v-else class="h-3 w-3" />
                   {{ badge.label }}
-                </Badge>
+                </ClickableBadge>
               </HoverCardTrigger>
               <HoverCardContent class="w-64 text-xs">
                 {{ badge.reason }}
               </HoverCardContent>
             </HoverCard>
-            <Badge v-else variant="success" class="cursor-default gap-1 text-xs">
-              <CheckCircle2 class="h-3 w-3" />
+            <ClickableBadge
+              v-else
+              variant="success"
+              class="gap-1 text-xs"
+              :disabled="badge.label === 'Port' && operationState.updatingPort"
+              @click="handleBadgeClick(badge.label)"
+            >
+              <Loader2 v-if="badge.label === 'Port' && operationState.updatingPort" class="h-3 w-3 animate-spin" />
+              <CheckCircle2 v-else class="h-3 w-3" />
               {{ badge.label }}
-            </Badge>
+            </ClickableBadge>
           </template>
         </template>
       </div>
