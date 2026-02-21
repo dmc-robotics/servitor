@@ -14,6 +14,7 @@ import { AppResult } from '../shared/types/app-result'
 
 const PROJECTS_FILE = 'projects.json'
 const GROT_TIMEOUT_MS = 5 * 60 * 1000 // 5 minutes
+const WATCH_DEBOUNCE_MS = 500
 
 /** Generate a UUID v4 for project IDs */
 function generateId(): string {
@@ -70,7 +71,7 @@ async function runGrot(args: string[], cwd: string): Promise<CommandOutput> {
  * availablePorts is the list of port paths from SerialPort.list(), used to
  * check whether the configured port is currently connected.
  */
-function enrichProject(config: ProjectConfig, availablePorts: string[]): ProjectData {
+export function enrichProject(config: ProjectConfig, availablePorts: string[]): ProjectData {
   let grotConfig: GrotConfig | null = null
   let hasInoFile = false
   let hasGrotConfig = false
@@ -101,8 +102,13 @@ function enrichProject(config: ProjectConfig, availablePorts: string[]): Project
  * ProjectManager handles all project management operations.
  * Stores project metadata in {userData}/projects.json.
  */
+export type ProjectChangeCallback = (projectId: string, data: ProjectData) => void
+
 export class ProjectManager {
   private projectsFilePath: string
+  private watchers = new Map<string, fs.FSWatcher>()
+  private debounceTimers = new Map<string, ReturnType<typeof setTimeout>>()
+  private changeCallback: ProjectChangeCallback | null = null
 
   constructor() {
     this.projectsFilePath = join(app.getPath('userData'), PROJECTS_FILE)
@@ -140,7 +146,9 @@ export class ProjectManager {
     try {
       const configs = this.readProjects()
       const portList = await SerialPort.list()
-      const availablePorts = portList.map((p) => p.path)
+      const availablePorts = portList.map((p) =>
+        process.platform === 'darwin' ? p.path.replace('/dev/tty.', '/dev/cu.') : p.path
+      )
       const projects = configs.map((config) => enrichProject(config, availablePorts))
       return { success: true, data: projects }
     } catch (error) {
@@ -316,13 +324,35 @@ export class ProjectManager {
       }
 
       const ports = await SerialPort.list()
-      const available = ports.some((p) => p.path === grotConfig.port)
+      const available = ports.some((p) => {
+        const path = process.platform === 'darwin' ? p.path.replace('/dev/tty.', '/dev/cu.') : p.path
+        return path === grotConfig.port
+      })
 
       if (!available) {
         return { success: false, error: `Port "${grotConfig.port}" is not connected. Plug in your Arduino and try again.` }
       }
 
       return { success: true, data: { available: true } }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+    }
+  }
+
+  /**
+   * Run `grot validate -c <configPath>` for a project.
+   */
+  async grotValidate(projectId: string): Promise<AppResult<CommandOutput>> {
+    try {
+      const projects = this.readProjects()
+      const config = projects.find((p) => p.id === projectId)
+      if (!config) return { success: false, error: 'Project not found' }
+
+      const configPath = this.findGrotConfigPath(config)
+      if (!configPath) return { success: false, error: 'No .grotconfig file found in project directory' }
+
+      const output = await runGrot(['validate', '-c', configPath], config.path)
+      return { success: true, data: output }
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
     }
@@ -375,5 +405,93 @@ export class ProjectManager {
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
     }
+  }
+
+  /**
+   * Start watching all current projects for .grotconfig and .ino file changes.
+   */
+  startWatching(onChange: ProjectChangeCallback): void {
+    this.changeCallback = onChange
+    const configs = this.readProjects()
+    for (const config of configs) {
+      this.watchProject(config)
+    }
+  }
+
+  /**
+   * Watch a single project directory for relevant file changes.
+   */
+  watchProject(config: ProjectConfig): void {
+    if (this.watchers.has(config.id)) return
+
+    const dirName = config.path.replace(/\/+$/, '').split('/').pop() || ''
+    const relevantFiles = new Set(['.grotconfig', `${dirName}.ino`])
+
+    try {
+      const watcher = fs.watch(config.path, (_eventType, filename) => {
+        if (!filename || !relevantFiles.has(filename)) return
+        this.debouncedReenrich(config)
+      })
+
+      watcher.on('error', (err) => {
+        console.error(`Watcher error for project ${config.id}:`, err)
+        this.unwatchProject(config.id)
+      })
+
+      this.watchers.set(config.id, watcher)
+    } catch (err) {
+      console.error(`Failed to watch project ${config.id}:`, err)
+    }
+  }
+
+  /**
+   * Debounce re-enrichment to coalesce rapid saves (e.g. editor save-then-rename).
+   */
+  private debouncedReenrich(config: ProjectConfig): void {
+    const existing = this.debounceTimers.get(config.id)
+    if (existing) clearTimeout(existing)
+
+    this.debounceTimers.set(
+      config.id,
+      setTimeout(async () => {
+        this.debounceTimers.delete(config.id)
+        try {
+          const portList = await SerialPort.list()
+          const availablePorts = portList.map((p) =>
+            process.platform === 'darwin' ? p.path.replace('/dev/tty.', '/dev/cu.') : p.path
+          )
+          const data = enrichProject(config, availablePorts)
+          this.changeCallback?.(config.id, data)
+        } catch (err) {
+          console.error(`Failed to re-enrich project ${config.id}:`, err)
+        }
+      }, WATCH_DEBOUNCE_MS)
+    )
+  }
+
+  /**
+   * Stop watching a single project.
+   */
+  unwatchProject(id: string): void {
+    const watcher = this.watchers.get(id)
+    if (watcher) {
+      watcher.close()
+      this.watchers.delete(id)
+    }
+    const timer = this.debounceTimers.get(id)
+    if (timer) {
+      clearTimeout(timer)
+      this.debounceTimers.delete(id)
+    }
+  }
+
+  /**
+   * Stop watching all projects. Call on app quit.
+   */
+  stopWatching(): void {
+    for (const [id] of this.watchers) {
+      this.unwatchProject(id)
+    }
+    this.changeCallback = null
   }
 }

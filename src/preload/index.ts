@@ -66,6 +66,8 @@ export interface DashboardAPI {
   load: (projectId: string) => Promise<AppResult<CommandOutput>>
   checkPort: (projectId: string) => Promise<AppResult<{ available: boolean }>>
   updatePort: (projectId: string) => Promise<AppResult<{ port: string }>>
+  validateConfig: (projectId: string) => Promise<AppResult<CommandOutput>>
+  onProjectChanged: (callback: (projectId: string, data: ProjectData) => void) => () => void
 }
 
 const dashboardAPI: DashboardAPI = {
@@ -77,7 +79,17 @@ const dashboardAPI: DashboardAPI = {
   build: (projectId) => ipcRenderer.invoke('dashboard:build', projectId),
   load: (projectId) => ipcRenderer.invoke('dashboard:load', projectId),
   checkPort: (projectId) => ipcRenderer.invoke('dashboard:check-port', projectId),
-  updatePort: (projectId) => ipcRenderer.invoke('dashboard:update-port', projectId)
+  updatePort: (projectId) => ipcRenderer.invoke('dashboard:update-port', projectId),
+  validateConfig: (projectId) => ipcRenderer.invoke('dashboard:validate-config', projectId),
+  onProjectChanged: (callback) => {
+    const listener = (_event: Electron.IpcRendererEvent, payload: { projectId: string; projectData: ProjectData }) => {
+      callback(payload.projectId, payload.projectData)
+    }
+    ipcRenderer.on('dashboard:project-changed', listener)
+    return () => {
+      ipcRenderer.removeListener('dashboard:project-changed', listener)
+    }
+  }
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

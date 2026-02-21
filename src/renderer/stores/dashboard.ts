@@ -17,11 +17,17 @@ export interface OutputLogEntry {
   timestamp: number
 }
 
+/** Per-project config validation result */
+interface ConfigValidationResult {
+  valid: boolean
+}
+
 interface DashboardState {
   projects: ProjectData[]
   loading: boolean
   operationState: Record<string, ProjectOperationState>
   portScanErrors: Record<string, string>
+  configValidation: Record<string, ConfigValidationResult>
   outputLog: OutputLogEntry[]
   outputPanelOpen: boolean
   nextLogId: number
@@ -33,6 +39,7 @@ export const useDashboardStore = defineStore('dashboard', {
     loading: false,
     operationState: {},
     portScanErrors: {},
+    configValidation: {},
     outputLog: [],
     outputPanelOpen: false,
     nextLogId: 1
@@ -70,6 +77,8 @@ export const useDashboardStore = defineStore('dashboard', {
           for (const p of this.projects) {
             this.ensureOperationState(p.config.id)
           }
+          // Validate configs in background after initial load
+          this.validateAllConfigs()
         } else {
           console.error('Failed to load projects:', result.error)
         }
@@ -129,6 +138,40 @@ export const useDashboardStore = defineStore('dashboard', {
         timestamp: Date.now()
       })
       this.outputPanelOpen = true
+    },
+
+    /** Validate a single project's .grotconfig using grot validate */
+    async validateConfig(id: string): Promise<void> {
+      const project = this.projects.find((p) => p.config.id === id)
+      if (!project?.hasGrotConfig) {
+        delete this.configValidation[id]
+        return
+      }
+
+      const title = project.config.title
+      const result = await window.dashboardAPI.validateConfig(id)
+
+      if (result.success && result.data) {
+        const valid = result.data.exitCode === 0
+        this.configValidation[id] = { valid }
+        if (!valid) {
+          this.appendOutput(title, 'validate', result.data)
+        }
+      } else {
+        // Command itself failed (e.g. grot not installed)
+        this.configValidation[id] = { valid: false }
+        this.appendOutput(title, 'validate', {
+          exitCode: 1,
+          stdout: '',
+          stderr: result.error ?? 'Failed to run grot validate'
+        })
+      }
+    },
+
+    /** Validate all projects that have a .grotconfig */
+    async validateAllConfigs(): Promise<void> {
+      const projectsWithConfig = this.projects.filter((p) => p.hasGrotConfig)
+      await Promise.all(projectsWithConfig.map((p) => this.validateConfig(p.config.id)))
     },
 
     /** Check if a project's port is connected, updating badge state on failure */
@@ -236,6 +279,23 @@ export const useDashboardStore = defineStore('dashboard', {
         }
       } finally {
         this.operationState[id].updatingPort = false
+      }
+    },
+
+    /** Handle a project change pushed from the main process file watcher */
+    handleProjectChanged(projectId: string, data: ProjectData): void {
+      const index = this.projects.findIndex((p) => p.config.id === projectId)
+      if (index === -1) return
+
+      const hadConfig = this.projects[index].hasGrotConfig
+      this.projects[index] = data
+
+      if (data.hasGrotConfig) {
+        // Re-validate since config content may have changed
+        this.validateConfig(projectId)
+      } else if (hadConfig) {
+        // Config was removed
+        delete this.configValidation[projectId]
       }
     },
 

@@ -44,6 +44,10 @@ export default defineComponent({
     portScanError: {
       type: String as PropType<string | undefined>,
       default: undefined
+    },
+    configValid: {
+      type: Boolean as PropType<boolean | undefined>,
+      default: undefined
     }
   },
 
@@ -90,12 +94,26 @@ export default defineComponent({
 
     // --- Status badges ---
 
+    configBadgeState(): BadgeState {
+      if (!this.project.hasGrotConfig) return 'fail'
+      // undefined means validation hasn't completed yet — treat as ok until we know otherwise
+      if (this.configValid === undefined) return 'ok'
+      return this.configValid ? 'ok' : 'fail'
+    },
+
+    configBadgeReason(): string {
+      if (!this.project.hasGrotConfig) {
+        return `No .grotconfig file found in "${this.projectDirName}".`
+      }
+      return 'Config failed validation. See output panel for details.'
+    },
+
     statusBadges(): StatusBadgeConfig[] {
       return [
         {
           label: 'Config',
-          state: this.project.hasGrotConfig ? 'ok' : 'fail',
-          reason: `No .grotconfig file found in "${this.projectDirName}".`
+          state: this.configBadgeState,
+          reason: this.configBadgeReason
         },
         {
           label: 'Sketch',

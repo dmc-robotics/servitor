@@ -24,12 +24,13 @@ export default defineComponent({
 
   data() {
     return {
-      editingProject: null as ProjectData | null
+      editingProject: null as ProjectData | null,
+      unsubscribeProjectChanged: null as (() => void) | null
     }
   },
 
   computed: {
-    ...mapState(useDashboardStore, ['projects', 'loading', 'portScanErrors']),
+    ...mapState(useDashboardStore, ['projects', 'loading', 'portScanErrors', 'configValidation']),
 
     operationState() {
       const store = useDashboardStore()
@@ -51,6 +52,15 @@ export default defineComponent({
 
   async mounted() {
     await this.loadProjects()
+
+    const store = useDashboardStore()
+    this.unsubscribeProjectChanged = window.dashboardAPI.onProjectChanged(
+      (projectId, data) => store.handleProjectChanged(projectId, data)
+    )
+  },
+
+  beforeUnmount() {
+    this.unsubscribeProjectChanged?.()
   }
 })
 </script>
@@ -88,6 +98,7 @@ export default defineComponent({
           :project="project"
           :operation-state="operationState(project.config.id)"
           :port-scan-error="portScanErrors[project.config.id]"
+          :config-valid="configValidation[project.config.id]?.valid"
           @edit="handleEdit"
         />
       </div>

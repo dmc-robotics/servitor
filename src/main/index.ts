@@ -114,7 +114,11 @@ function registerDashboardIpcHandlers(): void {
   })
 
   ipcMain.handle('dashboard:add-project', async (_event, path, title, description) => {
-    return await projectManager.addProject(path, title, description)
+    const result = await projectManager.addProject(path, title, description)
+    if (result.success && result.data) {
+      projectManager.watchProject(result.data.config)
+    }
+    return result
   })
 
   ipcMain.handle('dashboard:update-project', async (_event, id, updates) => {
@@ -122,6 +126,7 @@ function registerDashboardIpcHandlers(): void {
   })
 
   ipcMain.handle('dashboard:remove-project', async (_event, id) => {
+    projectManager.unwatchProject(id)
     return await projectManager.removeProject(id)
   })
 
@@ -140,6 +145,10 @@ function registerDashboardIpcHandlers(): void {
   ipcMain.handle('dashboard:update-port', async (_event, projectId) => {
     return await projectManager.grotUpdatePort(projectId)
   })
+
+  ipcMain.handle('dashboard:validate-config', async (_event, projectId) => {
+    return await projectManager.grotValidate(projectId)
+  })
 }
 
 // This method will be called when Electron has finished
@@ -157,6 +166,14 @@ app.whenReady().then(() => {
 
   // Set up serial callbacks to broadcast to all windows
   setupSerialCallbacks()
+
+  // Start watching project directories for file changes
+  projectManager.startWatching((projectId, projectData) => {
+    const windows = BrowserWindow.getAllWindows()
+    windows.forEach((window) => {
+      window.webContents.send('dashboard:project-changed', { projectId, projectData })
+    })
+  })
 
   // Default open or close DevTools by F12 in development
   // and ignore CommandOrControl + R in production.
@@ -191,6 +208,7 @@ app.on('before-quit', async (e) => {
   if (!isQuitting) {
     e.preventDefault()
     isQuitting = true
+    projectManager.stopWatching()
     await serialManager.disconnect()
     app.quit()
   }
