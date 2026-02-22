@@ -17,13 +17,17 @@ const projectManager = new ProjectManager()
 // Flag to track if app is quitting (for async cleanup)
 let isQuitting = false
 
+const WINDOW_WIDTH = 900
+const WINDOW_HEIGHT = 670
+const WINDOW_BG_COLOR = '#1a1a1a'
+
 function createWindow(): BrowserWindow {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
-    width: 900,
-    height: 670,
+    width: WINDOW_WIDTH,
+    height: WINDOW_HEIGHT,
     show: false, // CRITICAL: Wait for ready-to-show to prevent white flash
-    backgroundColor: '#1a1a1a', // CRITICAL: Dark background prevents white flash on startup
+    backgroundColor: WINDOW_BG_COLOR, // CRITICAL: Dark background prevents white flash on startup
     autoHideMenuBar: true,
     // ...(process.platform === 'linux' ? { icon } : {}), // TODO: Add proper icon
     webPreferences: {

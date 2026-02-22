@@ -62,7 +62,7 @@ export default defineComponent({
     return {
       selectedPort: '',
       selectedBaudRate: String(DEFAULT_BAUD_RATE),
-      baudRates: VALID_BAUD_RATES as unknown as number[],
+      baudRates: [...VALID_BAUD_RATES],
       inputText: '',
       showRaw: false,
       isToggling: false,
@@ -208,7 +208,7 @@ export default defineComponent({
               <SelectItem
                 v-for="rate in baudRates"
                 :key="rate"
-                :value="rate"
+                :value="String(rate)"
               >
                 {{ rate }} baud
               </SelectItem>

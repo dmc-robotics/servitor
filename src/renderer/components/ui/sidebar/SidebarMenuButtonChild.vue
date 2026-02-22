@@ -6,7 +6,11 @@ import { Primitive } from "reka-ui"
 import { cn } from "@/lib/utils"
 import { sidebarMenuButtonVariants } from "."
 
-export interface SidebarMenuButtonProps extends PrimitiveProps {
+// shadcn-vue fix: PrimitiveProps defines `as` as AsTag | Component, but withDefaults
+// narrows it to string, causing a type mismatch when parent spreads props into this
+// component. Re-declare `as` as string to resolve. Only string tags are used here.
+export interface SidebarMenuButtonProps extends Omit<PrimitiveProps, 'as'> {
+  as?: string
   variant?: SidebarMenuButtonVariants["variant"]
   size?: SidebarMenuButtonVariants["size"]
   isActive?: boolean

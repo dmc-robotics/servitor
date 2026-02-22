@@ -207,6 +207,10 @@ export const useSerialStore = defineStore('serial', {
         this.connected = result.data.connected
         this.port = result.data.port || null
         this.baudRate = result.data.baudRate || DEFAULT_BAUD_RATE
+        // Restore data listener if still connected (e.g. after hot-reload)
+        if (this.connected && !this.dataCleanup) {
+          this.setupDataListener()
+        }
       }
     }
   }

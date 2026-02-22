@@ -32,7 +32,7 @@ function generateId(): string {
  * Parse relevant fields from a .grotconfig TOML file using regex.
  * We only need: fqbn, port, sketch_path, baud_rate
  */
-function parseGrotConfig(content: string): GrotConfig {
+export function parseGrotConfig(content: string): GrotConfig {
   const get = (key: string): string => {
     const match = content.match(new RegExp(`^${key}\\s*=\\s*"([^"]*)"`, 'm'))
     return match ? match[1] : ''
@@ -59,7 +59,7 @@ function parseGrotConfig(content: string): GrotConfig {
  * Update the port field in a .grotconfig TOML file content string.
  * Handles quoted values, unquoted values, and missing port key.
  */
-function updatePortInConfig(content: string, newPort: string): string {
+export function updatePortInConfig(content: string, newPort: string): string {
   // Try quoted value first: port = "..."
   if (/^port\s*=\s*"[^"]*"/m.test(content)) {
     return content.replace(/^(port\s*=\s*)"[^"]*"/m, `$1"${newPort}"`)
@@ -104,11 +104,10 @@ export function enrichProject(config: ProjectConfig, availablePorts: string[]): 
     directoryAccessible = true
     const dirName = config.path.replace(/\/+$/, '').split('/').pop() || ''
     hasInoFile = entries.includes(`${dirName}.ino`)
-    hasGrotConfig = entries.some((e) => e === '.grotconfig')
+    hasGrotConfig = entries.includes('.grotconfig')
 
     if (hasGrotConfig) {
-      const grotFile = entries.find((e) => e === '.grotconfig')!
-      const content = fs.readFileSync(join(config.path, grotFile), 'utf-8')
+      const content = fs.readFileSync(join(config.path, '.grotconfig'), 'utf-8')
       grotConfig = parseGrotConfig(content)
     }
   } catch {
@@ -299,7 +298,7 @@ export class ProjectManager {
       if (!configPath) return { success: false, error: 'No .grotconfig file found in project directory' }
 
       const output = await runGrot(['build', '-c', configPath], config.path)
-      return { success: output.exitCode === 0, data: output }
+      return { success: true, data: output }
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
     }
@@ -318,7 +317,7 @@ export class ProjectManager {
       if (!configPath) return { success: false, error: 'No .grotconfig file found in project directory' }
 
       const output = await runGrot(['load', '-c', configPath], config.path)
-      return { success: output.exitCode === 0, data: output }
+      return { success: true, data: output }
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
     }
@@ -372,7 +371,7 @@ export class ProjectManager {
       if (!configPath) return { success: false, error: 'No .grotconfig file found in project directory' }
 
       const output = await runGrot(['validate', '-c', configPath], config.path)
-      return { success: output.exitCode === 0, data: output }
+      return { success: true, data: output }
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
     }

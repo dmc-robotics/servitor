@@ -5,6 +5,8 @@ import { useSerialStore } from '@/stores/serial'
 import { VisXYContainer, VisLine, VisAxis, VisBulletLegend } from '@unovis/vue'
 import { CurveType, BulletShape } from '@unovis/ts'
 
+const CHART_COLOR_COUNT = 5
+
 interface PlotDataPoint {
   timestamp: number
   [key: string]: number | null
@@ -110,7 +112,6 @@ export default defineComponent({
      * Get color for data series from theme chart CSS variables
      */
     getSeriesColor(index: number): string {
-      const CHART_COLOR_COUNT = 5
       const colorIndex = (index % CHART_COLOR_COUNT) + 1
       const cssVar = `--chart-${colorIndex}`
       return getComputedStyle(document.documentElement).getPropertyValue(cssVar).trim() || 'currentColor'

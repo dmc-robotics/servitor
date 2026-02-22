@@ -28,13 +28,9 @@ export default defineComponent({
 
   data() {
     return {
-      editingProject: null as ProjectData | null
+      editingProject: null as ProjectData | null,
+      unsubscribeProjectChanged: null as (() => void) | null
     }
-  },
-
-  created() {
-    // Non-reactive instance property for cleanup function
-    (this as any)._unsubscribeProjectChanged = null as (() => void) | null
   },
 
   computed: {
@@ -61,13 +57,13 @@ export default defineComponent({
     await this.loadProjects()
 
     const store = useDashboardStore()
-    ;(this as any)._unsubscribeProjectChanged = window.dashboardAPI.onProjectChanged(
+    this.unsubscribeProjectChanged = window.dashboardAPI.onProjectChanged(
       (projectId, data) => store.handleProjectChanged(projectId, data)
     )
   },
 
   beforeUnmount() {
-    ;(this as any)._unsubscribeProjectChanged?.()
+    this.unsubscribeProjectChanged?.()
   }
 })
 </script>

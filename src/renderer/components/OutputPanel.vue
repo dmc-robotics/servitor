@@ -44,7 +44,8 @@ export default defineComponent({
       this.currentEntryIndex = newIndex
       if (newIndex >= 0) {
         this.$nextTick(() => {
-          this.$nextTick(() => {
+          // Wait for browser to recalculate layout and scrollHeight
+          requestAnimationFrame(() => {
             const el = this.$refs[`entry-${newIndex}`] as HTMLElement[] | HTMLElement | undefined
             const target = Array.isArray(el) ? el[0] : el
             if (target) {
@@ -60,7 +61,13 @@ export default defineComponent({
     ...mapActions(useDashboardStore, ['clearOutput']),
 
     formatTimestamp(ts: number): string {
-      return new Date(ts).toLocaleTimeString()
+      return new Date(ts).toLocaleTimeString('en-US', {
+        hour12: false,
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        fractionalSecondDigits: 3
+      })
     },
 
     isSuccess(entry: OutputLogEntry): boolean {
