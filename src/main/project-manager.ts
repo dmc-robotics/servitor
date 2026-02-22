@@ -16,6 +16,13 @@ const PROJECTS_FILE = 'projects.json'
 const GROT_TIMEOUT_MS = 5 * 60 * 1000 // 5 minutes
 const WATCH_DEBOUNCE_MS = 500
 
+/** Normalize serial port paths: on macOS, convert tty.* to cu.* for non-blocking open */
+function normalizePorts(portList: { path: string }[]): string[] {
+  return portList.map((p) =>
+    process.platform === 'darwin' ? p.path.replace('/dev/tty.', '/dev/cu.') : p.path
+  )
+}
+
 /** Generate a UUID v4 for project IDs */
 function generateId(): string {
   return randomUUID()
@@ -50,9 +57,19 @@ function parseGrotConfig(content: string): GrotConfig {
 
 /**
  * Update the port field in a .grotconfig TOML file content string.
+ * Handles quoted values, unquoted values, and missing port key.
  */
 function updatePortInConfig(content: string, newPort: string): string {
-  return content.replace(/^(port\s*=\s*)"[^"]*"/m, `$1"${newPort}"`)
+  // Try quoted value first: port = "..."
+  if (/^port\s*=\s*"[^"]*"/m.test(content)) {
+    return content.replace(/^(port\s*=\s*)"[^"]*"/m, `$1"${newPort}"`)
+  }
+  // Try unquoted value: port = /dev/...
+  if (/^port\s*=\s*\S+/m.test(content)) {
+    return content.replace(/^(port\s*=\s*)\S+/m, `$1"${newPort}"`)
+  }
+  // Port key not found — append it
+  return content.trimEnd() + `\nport = "${newPort}"\n`
 }
 
 /**
@@ -151,9 +168,7 @@ export class ProjectManager {
     try {
       const configs = this.readProjects()
       const portList = await SerialPort.list()
-      const availablePorts = portList.map((p) =>
-        process.platform === 'darwin' ? p.path.replace('/dev/tty.', '/dev/cu.') : p.path
-      )
+      const availablePorts = normalizePorts(portList)
       const projects = configs.map((config) => enrichProject(config, availablePorts))
       return { success: true, data: projects }
     } catch (error) {
@@ -208,7 +223,7 @@ export class ProjectManager {
       this.writeProjects(projects)
 
       const portList = await SerialPort.list()
-      return { success: true, data: enrichProject(config, portList.map((p) => p.path)) }
+      return { success: true, data: enrichProject(config, normalizePorts(portList)) }
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
     }
@@ -233,7 +248,7 @@ export class ProjectManager {
 
       this.writeProjects(projects)
       const portList = await SerialPort.list()
-      return { success: true, data: enrichProject(projects[index], portList.map((p) => p.path)) }
+      return { success: true, data: enrichProject(projects[index], normalizePorts(portList)) }
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
     }
@@ -284,7 +299,7 @@ export class ProjectManager {
       if (!configPath) return { success: false, error: 'No .grotconfig file found in project directory' }
 
       const output = await runGrot(['build', '-c', configPath], config.path)
-      return { success: true, data: output }
+      return { success: output.exitCode === 0, data: output }
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
     }
@@ -303,7 +318,7 @@ export class ProjectManager {
       if (!configPath) return { success: false, error: 'No .grotconfig file found in project directory' }
 
       const output = await runGrot(['load', '-c', configPath], config.path)
-      return { success: true, data: output }
+      return { success: output.exitCode === 0, data: output }
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
     }
@@ -357,7 +372,7 @@ export class ProjectManager {
       if (!configPath) return { success: false, error: 'No .grotconfig file found in project directory' }
 
       const output = await runGrot(['validate', '-c', configPath], config.path)
-      return { success: true, data: output }
+      return { success: output.exitCode === 0, data: output }
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
     }
@@ -462,9 +477,7 @@ export class ProjectManager {
         this.debounceTimers.delete(config.id)
         try {
           const portList = await SerialPort.list()
-          const availablePorts = portList.map((p) =>
-            process.platform === 'darwin' ? p.path.replace('/dev/tty.', '/dev/cu.') : p.path
-          )
+          const availablePorts = normalizePorts(portList)
           const data = enrichProject(config, availablePorts)
           this.changeCallback?.(config.id, data)
         } catch (err) {

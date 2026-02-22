@@ -2,12 +2,12 @@ import { SerialPort } from 'serialport'
 import { ReadlineParser } from '@serialport/parser-readline'
 import {
   LINE_DELIMITER,
-  SerialResult,
   SerialConfig,
   SerialDataEvent,
   PortInfo,
   ConnectionStatus
 } from '../shared/types/serial'
+import { AppResult } from '../shared/types/app-result'
 
 /**
  * On macOS, the serialport npm package only returns /dev/tty.* paths.
@@ -30,6 +30,7 @@ export class SerialManager {
   private port: SerialPort | null = null
   private parser: ReadlineParser | null = null
   private isConnected = false
+  private isDisconnecting = false
   private currentConfig: SerialConfig | null = null
   private dataCallback: ((data: SerialDataEvent) => void) | null = null
   private connectionLostCallback: ((reason: string) => void) | null = null
@@ -37,7 +38,7 @@ export class SerialManager {
   /**
    * List all available serial ports
    */
-  async listPorts(): Promise<SerialResult<PortInfo[]>> {
+  async listPorts(): Promise<AppResult<PortInfo[]>> {
     try {
       const ports = await SerialPort.list()
       const portList = ports.map((port) => ({
@@ -62,7 +63,7 @@ export class SerialManager {
   /**
    * Connect to a serial port with given configuration
    */
-  async connect(config: SerialConfig): Promise<SerialResult<void>> {
+  async connect(config: SerialConfig): Promise<AppResult<void>> {
     if (this.isConnected) {
       await this.disconnect()
     }
@@ -102,7 +103,8 @@ export class SerialManager {
         const wasConnected = this.isConnected
         this.isConnected = false
         this.currentConfig = null
-        if (wasConnected) {
+        // Only fire connectionLost for unexpected disconnects, not voluntary ones
+        if (wasConnected && !this.isDisconnecting) {
           this.connectionLostCallback?.('Port closed')
         }
       })
@@ -136,11 +138,12 @@ export class SerialManager {
   /**
    * Disconnect from the current serial port
    */
-  async disconnect(): Promise<SerialResult<void>> {
+  async disconnect(): Promise<AppResult<void>> {
     if (!this.port || !this.isConnected) {
       return { success: true }
     }
 
+    this.isDisconnecting = true
     try {
       await new Promise<void>((resolve, reject) => {
         this.port!.close((err) => {
@@ -163,13 +166,15 @@ export class SerialManager {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error'
       }
+    } finally {
+      this.isDisconnecting = false
     }
   }
 
   /**
    * Write data to the serial port
    */
-  async write(data: string): Promise<SerialResult<void>> {
+  async write(data: string): Promise<AppResult<void>> {
     if (!this.port || !this.isConnected) {
       return { success: false, error: 'Not connected to a serial port' }
     }
@@ -180,7 +185,10 @@ export class SerialManager {
           if (err) {
             reject(err)
           } else {
-            resolve()
+            this.port!.drain((drainErr) => {
+              if (drainErr) reject(drainErr)
+              else resolve()
+            })
           }
         })
       })
@@ -198,7 +206,7 @@ export class SerialManager {
   /**
    * Get current connection status
    */
-  getConnectionStatus(): SerialResult<ConnectionStatus> {
+  getConnectionStatus(): AppResult<ConnectionStatus> {
     return {
       success: true,
       data: {
@@ -233,10 +241,18 @@ export class SerialManager {
       this.parser.destroy() // Destroy stream and remove event listeners
     }
 
-    // Port cleanup is handled by SerialPort.close() in disconnect()
+    // Save port ref before nulling so we can close it if still open
+    const port = this.port
     this.port = null
     this.parser = null
     this.isConnected = false
     this.currentConfig = null
+
+    // Close the port if it's still open (e.g. called from error handler)
+    if (port?.isOpen) {
+      port.close((err) => {
+        if (err) console.error('Error closing port during cleanup:', err)
+      })
+    }
   }
 }

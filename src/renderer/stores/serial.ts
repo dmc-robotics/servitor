@@ -11,6 +11,7 @@ interface SerialState {
 
   // Message buffer for monitor
   messages: ParsedSerialData[]
+  nextMessageId: number
 
   // Plot data (separate arrays per data key)
   plotData: Record<string, number[]>
@@ -28,6 +29,7 @@ export const useSerialStore = defineStore('serial', {
     baudRate: DEFAULT_BAUD_RATE,
     availablePorts: [],
     messages: [],
+    nextMessageId: 1,
     plotData: {},
     timestamps: [],
     dataCleanup: null,
@@ -112,6 +114,7 @@ export const useSerialStore = defineStore('serial', {
      */
     clearData(): void {
       this.messages = []
+      this.nextMessageId = 1
       this.plotData = {}
       this.timestamps = []
     },
@@ -139,10 +142,10 @@ export const useSerialStore = defineStore('serial', {
           this.dataCleanup()
           this.dataCleanup = null
         }
-        if (this.connectionLostCleanup) {
-          this.connectionLostCleanup()
-          this.connectionLostCleanup = null
-        }
+        // Save ref before nulling to avoid self-reference issues
+        const cleanup = this.connectionLostCleanup
+        this.connectionLostCleanup = null
+        cleanup?.()
       })
     },
 
@@ -150,8 +153,9 @@ export const useSerialStore = defineStore('serial', {
      * Handle incoming serial data
      */
     handleSerialData(data: SerialDataEvent): void {
-      // Parse the data
+      // Parse the data and assign unique id
       const parsed = parseSerialLine(data.data, data.timestamp)
+      parsed.id = this.nextMessageId++
 
       // Add to message buffer
       this.messages.push(parsed)

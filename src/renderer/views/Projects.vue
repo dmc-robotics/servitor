@@ -28,22 +28,25 @@ export default defineComponent({
 
   data() {
     return {
-      editingProject: null as ProjectData | null,
-      unsubscribeProjectChanged: null as (() => void) | null
+      editingProject: null as ProjectData | null
     }
   },
 
-  computed: {
-    ...mapState(useDashboardStore, ['projects', 'loading', 'portScanErrors', 'configValidation']),
+  created() {
+    // Non-reactive instance property for cleanup function
+    (this as any)._unsubscribeProjectChanged = null as (() => void) | null
+  },
 
-    operationState() {
-      const store = useDashboardStore()
-      return (id: string) => store.getOperationState(id)
-    }
+  computed: {
+    ...mapState(useDashboardStore, ['projects', 'loading', 'portScanErrors', 'configValidation'])
   },
 
   methods: {
     ...mapActions(useDashboardStore, ['loadProjects']),
+
+    operationState(id: string) {
+      return useDashboardStore().getOperationState(id)
+    },
 
     handleEdit(project: ProjectData): void {
       this.editingProject = project
@@ -58,13 +61,13 @@ export default defineComponent({
     await this.loadProjects()
 
     const store = useDashboardStore()
-    this.unsubscribeProjectChanged = window.dashboardAPI.onProjectChanged(
+    ;(this as any)._unsubscribeProjectChanged = window.dashboardAPI.onProjectChanged(
       (projectId, data) => store.handleProjectChanged(projectId, data)
     )
   },
 
   beforeUnmount() {
-    this.unsubscribeProjectChanged?.()
+    ;(this as any)._unsubscribeProjectChanged?.()
   }
 })
 </script>

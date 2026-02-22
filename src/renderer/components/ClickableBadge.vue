@@ -39,6 +39,7 @@ export default defineComponent({
 
 <template>
   <button
+    type="button"
     :class="classes"
     :disabled="disabled"
     @click="$emit('click')"

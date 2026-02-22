@@ -14,7 +14,7 @@ import {
   CheckCircle2, XCircle, AlertTriangle
 } from 'lucide-vue-next'
 
-type BadgeState = 'ok' | 'fail'
+type BadgeState = 'ok' | 'fail' | 'pending'
 
 interface StatusBadgeConfig {
   label: string
@@ -104,16 +104,17 @@ export default defineComponent({
       return this.project.grotConfig?.port || 'not set'
     },
 
-    baudDisplay(): string | number {
-      return this.project.grotConfig?.baudRate ?? ''
+    baudDisplay(): string {
+      const rate = this.project.grotConfig?.baudRate
+      return rate != null ? String(rate) : 'not set'
     },
 
     // --- Status badges ---
 
     configBadgeState(): BadgeState {
       if (!this.project.hasGrotConfig) return 'fail'
-      // undefined means validation hasn't completed yet — treat as ok until we know otherwise
-      if (this.configValid === undefined) return 'ok'
+      // undefined means validation hasn't completed yet — show neutral state
+      if (this.configValid === undefined) return 'pending'
       return this.configValid ? 'ok' : 'fail'
     },
 
@@ -285,7 +286,7 @@ export default defineComponent({
             </HoverCard>
             <ClickableBadge
               v-else
-              variant="success"
+              :variant="badge.state === 'pending' ? 'secondary' : 'success'"
               class="gap-1 text-xs"
               :disabled="badge.label === 'Port' && operationState.updatingPort"
               @click="handleBadgeClick(badge.label)"
@@ -307,7 +308,7 @@ export default defineComponent({
         <Button
           size="sm"
           class="flex-1"
-          :disabled="isAnyBusy || !project.hasGrotConfig"
+          :disabled="isAnyBusy || !project.hasGrotConfig || !project.directoryAccessible"
           @click="handleBuild"
           title="Build with grot"
         >
@@ -319,7 +320,7 @@ export default defineComponent({
         <Button
           size="sm"
           class="flex-1"
-          :disabled="isAnyBusy || !project.hasGrotConfig"
+          :disabled="isAnyBusy || !project.hasGrotConfig || !project.directoryAccessible"
           @click="handleLoad"
           title="Load onto board with grot"
         >

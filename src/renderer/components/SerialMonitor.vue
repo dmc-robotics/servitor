@@ -45,22 +45,18 @@ export default defineComponent({
     }
   },
   watch: {
-    // Watch messages array with deep option to detect when items are added
-    // Bug fix: Without deep watching, array mutations may not trigger the watcher
-    messages: {
-      handler() {
-        // Auto-scroll to bottom when new messages arrive
-        this.$nextTick(() => {
-          // Wait for browser to recalculate layout and scrollHeight
-          requestAnimationFrame(() => {
-            const container = this.$refs.messageContainer as HTMLElement
-            if (container) {
-              container.scrollTop = container.scrollHeight
-            }
-          })
+    // Pinia reactive arrays trigger watchers on push without deep watching
+    'messages.length'() {
+      // Auto-scroll to bottom when new messages arrive
+      this.$nextTick(() => {
+        // Wait for browser to recalculate layout and scrollHeight
+        requestAnimationFrame(() => {
+          const container = this.$refs.messageContainer as HTMLElement
+          if (container) {
+            container.scrollTop = container.scrollHeight
+          }
         })
-      },
-      deep: true
+      })
     }
   }
 })
@@ -76,10 +72,10 @@ export default defineComponent({
         No messages yet. Connect to a serial port to start receiving data.
       </div>
       <div v-else-if="showRaw">
-        <div v-for="(message, index) in messages" :key="index">{{ message.data }}</div>
+        <div v-for="message in messages" :key="message.id">{{ message.data }}</div>
       </div>
       <div v-else>
-        <div v-for="(message, index) in messages" :key="index">
+        <div v-for="message in messages" :key="message.id">
           <span class="text-muted-foreground">{{ formatTime(message.timestamp) }}</span>
           <span class="ml-2" :class="getMessageClass(message)">{{ message.data }}</span>
         </div>

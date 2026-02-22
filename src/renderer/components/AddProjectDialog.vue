@@ -5,6 +5,7 @@ import { useDashboardStore } from '@/stores/dashboard'
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -22,6 +23,7 @@ export default defineComponent({
   components: {
     Dialog,
     DialogContent,
+    DialogDescription,
     DialogHeader,
     DialogTitle,
     DialogFooter,
@@ -111,6 +113,7 @@ export default defineComponent({
     <DialogContent class="sm:max-w-[480px]">
       <DialogHeader>
         <DialogTitle>Add Arduino Project</DialogTitle>
+        <DialogDescription class="sr-only">Add an Arduino project directory</DialogDescription>
       </DialogHeader>
 
       <div class="grid gap-4 py-4">
@@ -156,7 +159,7 @@ export default defineComponent({
       </div>
 
       <DialogFooter>
-        <Button variant="outline" @click="open = false">Cancel</Button>
+        <Button variant="outline" @click="handleOpenChange(false)">Cancel</Button>
         <Button @click="handleSubmit" :disabled="!canSubmit || submitting">
           {{ submitting ? 'Adding...' : 'Add Project' }}
         </Button>

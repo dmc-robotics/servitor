@@ -1,9 +1,11 @@
 import { app, shell, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
 import { spawn, execFile } from 'child_process'
+import * as fs from 'fs'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { SerialManager } from './serial-manager'
 import { ProjectManager } from './project-manager'
+import { SerialConfig } from '../shared/types/serial'
 // import icon from '../../resources/icon.png?asset' // TODO: Add proper icon
 
 // Global serial manager instance (singleton - only one instance for entire app lifecycle)
@@ -26,6 +28,7 @@ function createWindow(): BrowserWindow {
     // ...(process.platform === 'linux' ? { icon } : {}), // TODO: Add proper icon
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
+      // Intentionally disabled: preload needs Node.js APIs for IPC bridge
       sandbox: false
     }
   })
@@ -62,7 +65,7 @@ function registerSerialIpcHandlers(): void {
   })
 
   // Connect to a serial port
-  ipcMain.handle('serial:connect', async (_event, config) => {
+  ipcMain.handle('serial:connect', async (_event, config: SerialConfig) => {
     return await serialManager.connect(config)
   })
 
@@ -72,7 +75,7 @@ function registerSerialIpcHandlers(): void {
   })
 
   // Write data to serial port
-  ipcMain.handle('serial:write', async (_event, data) => {
+  ipcMain.handle('serial:write', async (_event, data: string) => {
     return await serialManager.write(data)
   })
 
@@ -114,7 +117,7 @@ function registerDashboardIpcHandlers(): void {
     return await projectManager.selectProjectDirectory()
   })
 
-  ipcMain.handle('dashboard:add-project', async (_event, path, title, description) => {
+  ipcMain.handle('dashboard:add-project', async (_event, path: string, title: string, description: string) => {
     const result = await projectManager.addProject(path, title, description)
     if (result.success && result.data) {
       projectManager.watchProject(result.data.config)
@@ -122,32 +125,35 @@ function registerDashboardIpcHandlers(): void {
     return result
   })
 
-  ipcMain.handle('dashboard:update-project', async (_event, id, updates) => {
+  ipcMain.handle('dashboard:update-project', async (_event, id: string, updates: { title?: string; description?: string }) => {
     return await projectManager.updateProject(id, updates)
   })
 
-  ipcMain.handle('dashboard:remove-project', async (_event, id) => {
-    projectManager.unwatchProject(id)
-    return await projectManager.removeProject(id)
+  ipcMain.handle('dashboard:remove-project', async (_event, id: string) => {
+    const result = await projectManager.removeProject(id)
+    if (result.success) {
+      projectManager.unwatchProject(id)
+    }
+    return result
   })
 
-  ipcMain.handle('dashboard:build', async (_event, projectId) => {
+  ipcMain.handle('dashboard:build', async (_event, projectId: string) => {
     return await projectManager.grotBuild(projectId)
   })
 
-  ipcMain.handle('dashboard:load', async (_event, projectId) => {
+  ipcMain.handle('dashboard:load', async (_event, projectId: string) => {
     return await projectManager.grotLoad(projectId)
   })
 
-  ipcMain.handle('dashboard:check-port', async (_event, projectId) => {
+  ipcMain.handle('dashboard:check-port', async (_event, projectId: string) => {
     return await projectManager.checkPort(projectId)
   })
 
-  ipcMain.handle('dashboard:update-port', async (_event, projectId) => {
+  ipcMain.handle('dashboard:update-port', async (_event, projectId: string) => {
     return await projectManager.grotUpdatePort(projectId)
   })
 
-  ipcMain.handle('dashboard:validate-config', async (_event, projectId) => {
+  ipcMain.handle('dashboard:validate-config', async (_event, projectId: string) => {
     return await projectManager.grotValidate(projectId)
   })
 }
@@ -158,6 +164,9 @@ function registerDashboardIpcHandlers(): void {
 function registerAppIpcHandlers(): void {
   ipcMain.handle('app:open-in-terminal', async (_event, { path, terminal }: { path: string; terminal: 'alacritty' | 'terminal' }) => {
     try {
+      if (!fs.existsSync(path)) {
+        return { success: false, error: `Path does not exist: ${path}` }
+      }
       if (terminal === 'alacritty') {
         spawn('alacritty', ['--working-directory', path], { detached: true, stdio: 'ignore' }).unref()
       } else {
@@ -188,6 +197,9 @@ function registerAppIpcHandlers(): void {
 
   ipcMain.handle('app:open-in-editor', async (_event, { filePath, editor }: { filePath: string; editor: 'textedit' | 'sublime' }) => {
     try {
+      if (!fs.existsSync(filePath)) {
+        return { success: false, error: `File does not exist: ${filePath}` }
+      }
       const appName = editor === 'sublime' ? 'Sublime Text' : 'TextEdit'
       spawn('open', ['-a', appName, filePath], { detached: true, stdio: 'ignore' }).unref()
       return { success: true }
@@ -258,7 +270,11 @@ app.on('before-quit', async (e) => {
     e.preventDefault()
     isQuitting = true
     projectManager.stopWatching()
-    await serialManager.disconnect()
+    const QUIT_TIMEOUT_MS = 3000
+    await Promise.race([
+      serialManager.disconnect(),
+      new Promise((r) => setTimeout(r, QUIT_TIMEOUT_MS))
+    ])
     app.quit()
   }
 })

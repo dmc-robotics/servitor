@@ -11,7 +11,8 @@
       "Bash(npx tsc:*)",
       "mcp__shadcn__view_items_in_registries",
       "mcp__shadcn__get_item_examples_from_registries",
-      "Bash(npx electron-vite build:*)"
+      "Bash(npx electron-vite build:*)",
+      "Bash(tail:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

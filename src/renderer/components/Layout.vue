@@ -60,6 +60,7 @@
             <div
               class="w-4 h-4 rounded-full"
               :class="connected ? 'bg-green-500' : 'bg-muted-foreground/50'"
+              :title="connected ? 'Serial connected' : 'Not connected'"
             />
           </div>
         </div>
@@ -118,11 +119,7 @@ export default defineComponent({
     ...mapState(useSerialStore, ['connected']),
 
     pageTitle(): string {
-      const route = this.$route
-      if (route.name === 'Projects') return 'Projects'
-      if (route.name === 'Serial') return 'Serial Monitor'
-      if (route.name === 'Settings') return 'Settings'
-      return 'Servitor'
+      return (this.$route.meta?.title as string) || 'Servitor'
     }
   }
 })

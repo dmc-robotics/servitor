@@ -38,23 +38,21 @@ export default defineComponent({
   },
 
   watch: {
-    outputLog: {
-      handler() {
-        const newIndex = this.outputLog.length - 1
-        this.currentEntryIndex = newIndex
-        if (newIndex >= 0) {
+    // Pinia reactive arrays trigger watchers on push without deep watching
+    'outputLog.length'() {
+      const newIndex = this.outputLog.length - 1
+      this.currentEntryIndex = newIndex
+      if (newIndex >= 0) {
+        this.$nextTick(() => {
           this.$nextTick(() => {
-            this.$nextTick(() => {
-              const el = this.$refs[`entry-${newIndex}`] as HTMLElement[] | HTMLElement | undefined
-              const target = Array.isArray(el) ? el[0] : el
-              if (target) {
-                target.scrollIntoView({ behavior: 'smooth', block: 'start' })
-              }
-            })
+            const el = this.$refs[`entry-${newIndex}`] as HTMLElement[] | HTMLElement | undefined
+            const target = Array.isArray(el) ? el[0] : el
+            if (target) {
+              target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+            }
           })
-        }
-      },
-      deep: true
+        })
+      }
     }
   },
 

@@ -22,33 +22,26 @@ export default defineComponent({
     return {
       containerHeight: 400,
       containerWidth: 0,
-      resizeObserver: null as ResizeObserver | null,
-      resizeRAF: 0,
-      CurveType
+      resizeRAF: 0
     }
   },
   mounted() {
     this.$nextTick(() => {
       this.measureContainer()
-
-      const container = this.$el?.querySelector('.chart-container') as HTMLElement
-      if (container) {
-        this.resizeObserver = new ResizeObserver(() => {
-          this.measureContainer()
-        })
-        this.resizeObserver.observe(container)
-      }
-
       window.addEventListener('resize', this.handleWindowResize)
     })
   },
   beforeUnmount() {
-    this.resizeObserver?.disconnect()
     window.removeEventListener('resize', this.handleWindowResize)
     cancelAnimationFrame(this.resizeRAF)
   },
   computed: {
     ...mapState(useSerialStore, ['plotData', 'timestamps']),
+
+    /** Expose CurveType enum as computed to avoid making it reactive in data() */
+    CurveType(): typeof CurveType {
+      return CurveType
+    },
 
     /**
      * Transform plot data into format for Unovis
@@ -93,6 +86,17 @@ export default defineComponent({
       return this.dataKeys.length > 0 && this.timestamps.length > 0
     },
 
+    /**
+     * Cached y-accessor functions per data key — avoids creating new functions every render
+     */
+    yAccessors(): Record<string, (d: PlotDataPoint) => number | null> {
+      const accessors: Record<string, (d: PlotDataPoint) => number | null> = {}
+      for (const key of this.dataKeys) {
+        accessors[key] = (d: PlotDataPoint) => d[key]
+      }
+      return accessors
+    },
+
     legendItems(): { name: string; color: string; shape: BulletShape }[] {
       return this.dataKeys.map((key, index) => ({
         name: key,
@@ -117,13 +121,6 @@ export default defineComponent({
      */
     x(d: PlotDataPoint): number {
       return d.timestamp
-    },
-
-    /**
-     * Create Y accessor for a specific data key
-     */
-    createYAccessor(key: string): (d: PlotDataPoint) => number | null {
-      return (d: PlotDataPoint) => d[key]
     },
 
     /**
@@ -172,7 +169,7 @@ export default defineComponent({
               v-for="(key, index) in dataKeys"
               :key="key"
               :x="x"
-              :y="createYAccessor(key)"
+              :y="yAccessors[key]"
               :color="getSeriesColor(index)"
               :lineWidth="2"
               :duration="0"

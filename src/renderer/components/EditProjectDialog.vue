@@ -6,6 +6,7 @@ import { ProjectData } from '../../shared/types/dashboard'
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter
@@ -33,6 +34,7 @@ export default defineComponent({
   components: {
     Dialog,
     DialogContent,
+    DialogDescription,
     DialogHeader,
     DialogTitle,
     DialogFooter,
@@ -124,8 +126,12 @@ export default defineComponent({
 
       this.removing = true
       try {
-        await this.removeProject(this.project.config.id)
-        this.$emit('close')
+        const success = await this.removeProject(this.project.config.id)
+        if (success) {
+          this.$emit('close')
+        } else {
+          this.error = 'Failed to remove project.'
+        }
       } finally {
         this.removing = false
       }
@@ -139,6 +145,7 @@ export default defineComponent({
     <DialogContent class="sm:max-w-[480px]">
       <DialogHeader>
         <DialogTitle>Edit Project</DialogTitle>
+        <DialogDescription class="sr-only">Edit project title and description</DialogDescription>
       </DialogHeader>
 
       <div class="grid gap-4 py-4">

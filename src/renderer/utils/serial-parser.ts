@@ -5,6 +5,7 @@ export type ParsedDataType = 'data' | 'error' | 'warn' | 'info' | 'debug' | 'log
 
 /** Parsed serial data structure */
 export interface ParsedSerialData extends SerialDataEvent {
+  id: number
   type: ParsedDataType
   values?: Record<string, number>
   message?: string
@@ -38,6 +39,7 @@ export function parseSerialLine(line: string, timestamp: number): ParsedSerialDa
   // Empty lines are plain logs
   if (!trimmed) {
     return {
+      id: 0,
       timestamp,
       data: line,
       type: 'log'
@@ -49,6 +51,7 @@ export function parseSerialLine(line: string, timestamp: number): ParsedSerialDa
   if (logMatch) {
     const level = logMatch[1].toLowerCase() as 'error' | 'warn' | 'info' | 'debug'
     return {
+      id: 0,
       timestamp,
       data: line,
       type: level,
@@ -75,6 +78,7 @@ export function parseSerialLine(line: string, timestamp: number): ParsedSerialDa
     // Only return as data if we successfully parsed at least one value
     if (Object.keys(values).length > 0) {
       return {
+        id: 0,
         timestamp,
         data: line,
         type: 'data',
@@ -85,6 +89,7 @@ export function parseSerialLine(line: string, timestamp: number): ParsedSerialDa
 
   // Default: plain log message
   return {
+    id: 0,
     timestamp,
     data: line,
     type: 'log',

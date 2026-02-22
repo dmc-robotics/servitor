@@ -61,11 +61,12 @@ export default defineComponent({
   data() {
     return {
       selectedPort: '',
-      selectedBaudRate: DEFAULT_BAUD_RATE,
+      selectedBaudRate: String(DEFAULT_BAUD_RATE),
       baudRates: VALID_BAUD_RATES as unknown as number[],
       inputText: '',
       showRaw: false,
-      isToggling: false
+      isToggling: false,
+      connectionError: ''
     }
   },
   computed: {
@@ -91,10 +92,11 @@ export default defineComponent({
       }
 
       this.isToggling = true
+      this.connectionError = ''
       try {
-        const success = await this.connect(this.selectedPort, this.selectedBaudRate)
+        const success = await this.connect(this.selectedPort, Number(this.selectedBaudRate))
         if (!success) {
-          console.error('Failed to connect')
+          this.connectionError = 'Failed to connect to serial port.'
         }
       } finally {
         this.isToggling = false
@@ -144,12 +146,16 @@ export default defineComponent({
     }
   },
   async mounted() {
+    // Sync connection status from main process (handles app reload while connected)
+    const store = useSerialStore()
+    await store.updateStatus()
+
     await this.loadPorts()
 
     if (this.connected && this.port) {
       // Restore selection from active connection
       this.selectedPort = this.port
-      this.selectedBaudRate = this.baudRate
+      this.selectedBaudRate = String(this.baudRate)
     } else if (this.availablePorts.length > 0) {
       // Pre-select first port if available
       this.selectedPort = this.availablePorts[0].path
@@ -219,6 +225,7 @@ export default defineComponent({
             {{ connected ? 'Disconnect' : 'Connect' }}
           </Button>
         </div>
+        <p v-if="connectionError" class="text-sm text-destructive mt-2">{{ connectionError }}</p>
       </CardContent>
     </Card>
 
@@ -326,7 +333,7 @@ void loop() {
           <div class="relative">
             <Textarea
               v-model="inputText"
-              placeholder=""
+              placeholder="Send to device (Enter to send)"
               rows="3"
               :disabled="!connected"
               @keydown="handleKeyDown"
