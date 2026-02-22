@@ -1,6 +1,6 @@
 {
   "name": "servitor",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Arduino serial monitor, plotter, and project management tool",
   "main": "./out/main/index.js",
   "author": "Servitor",
