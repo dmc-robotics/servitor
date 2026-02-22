@@ -79,11 +79,18 @@ export function updatePortInConfig(content: string, newPort: string): string {
 async function runGrot(args: string[], cwd: string): Promise<CommandOutput> {
   return new Promise((resolve) => {
     execFile('grot', args, { timeout: GROT_TIMEOUT_MS, cwd }, (error, stdout, stderr) => {
-      resolve({
-        exitCode: typeof error?.code === 'number' ? error.code : (error ? 1 : 0),
-        stdout: stdout || '',
-        stderr: stderr || ''
-      })
+      let exitCode = 0
+      let effectiveStderr = stderr || ''
+      if (error) {
+        exitCode = typeof error.code === 'number' ? error.code : 1
+        // When the process fails to start (e.g. ENOENT — grot not found), stderr is
+        // empty but error.message carries the actual reason. Surface it so the user
+        // sees something actionable rather than a blank error.
+        if (!effectiveStderr && error.message) {
+          effectiveStderr = error.message
+        }
+      }
+      resolve({ exitCode, stdout: stdout || '', stderr: effectiveStderr })
     })
   })
 }

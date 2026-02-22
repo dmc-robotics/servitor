@@ -1,12 +1,41 @@
 import { app, shell, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
-import { spawn, execFile } from 'child_process'
+import { spawn, execFile, execSync } from 'child_process'
 import * as fs from 'fs'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { SerialManager } from './serial-manager'
 import { ProjectManager } from './project-manager'
 import { SerialConfig } from '../shared/types/serial'
 // import icon from '../../resources/icon.png?asset' // TODO: Add proper icon
+
+/**
+ * On macOS/Linux, apps launched from the GUI (Finder, dock) do not inherit the
+ * user's shell PATH. Ruby gems like grot won't be found via execFile. Fix this
+ * by spawning a login shell once at startup to read the resolved PATH.
+ */
+function fixPath(): void {
+  if (process.platform !== 'darwin' && process.platform !== 'linux') return
+  try {
+    const shell = process.env.SHELL || '/bin/zsh'
+    // Use login (-l) + interactive (-i) so that both .zprofile and .zshrc are
+    // sourced. Tools like rbenv/nvm typically initialize in .zshrc, not .zprofile,
+    // so -l alone misses them. stdin from /dev/null prevents hanging.
+    const env = execSync(`${shell} -l -i -c env`, {
+      encoding: 'utf-8',
+      timeout: 5000,
+      stdio: ['ignore', 'pipe', 'ignore']
+    })
+    const pathMatch = env.match(/^PATH=(.+)$/m)
+    if (pathMatch) {
+      process.env.PATH = pathMatch[1]
+    }
+  } catch {
+    console.warn('fixPath: could not resolve login shell PATH — grot may not be found')
+  }
+}
+
+// Fix PATH before anything else so grot is discoverable in production builds
+fixPath()
 
 // Global serial manager instance (singleton - only one instance for entire app lifecycle)
 const serialManager = new SerialManager()

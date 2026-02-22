@@ -81,6 +81,25 @@ export default defineComponent({
 
     canConnect(): boolean {
       return !this.connected && !!this.selectedPort
+    },
+
+    sortedPorts(): typeof this.availablePorts {
+      const ARDUINO_VENDORS = new Set(['2341', '0403', '1a86', '10c4', '067b', '04d8', '1b4f'])
+      const ARDUINO_MANUFACTURERS = /arduino|ftdi|silicon labs|wch|prolific|ch340|ch341|cp210/i
+      const ARDUINO_PATH = /usbmodem|usbserial/i
+
+      const isLikelyArduino = (port: (typeof this.availablePorts)[number]): boolean => {
+        if (port.vendorId && ARDUINO_VENDORS.has(port.vendorId.toLowerCase())) return true
+        if (port.manufacturer && ARDUINO_MANUFACTURERS.test(port.manufacturer)) return true
+        if (ARDUINO_PATH.test(port.path)) return true
+        return false
+      }
+
+      return [...this.availablePorts].sort((a, b) => {
+        const aLikely = isLikelyArduino(a) ? 0 : 1
+        const bLikely = isLikelyArduino(b) ? 0 : 1
+        return aLikely - bLikely
+      })
     }
   },
   methods: {
@@ -156,9 +175,9 @@ export default defineComponent({
       // Restore selection from active connection
       this.selectedPort = this.port
       this.selectedBaudRate = String(this.baudRate)
-    } else if (this.availablePorts.length > 0) {
-      // Pre-select first port if available
-      this.selectedPort = this.availablePorts[0].path
+    } else if (this.sortedPorts.length > 0) {
+      // Pre-select first port (likely Arduino ports sorted to top)
+      this.selectedPort = this.sortedPorts[0].path
     }
   }
 })
@@ -187,7 +206,7 @@ export default defineComponent({
             </SelectTrigger>
             <SelectContent>
               <SelectItem
-                v-for="port in availablePorts"
+                v-for="port in sortedPorts"
                 :key="port.path"
                 :value="port.path"
               >
