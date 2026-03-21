@@ -199,6 +199,13 @@ export const useSerialStore = defineStore('serial', {
     },
 
     /**
+     * Set the baud rate (used by dashboard when loading a project)
+     */
+    setBaudRate(rate: number): void {
+      this.baudRate = rate
+    },
+
+    /**
      * Update connection status from backend
      */
     async updateStatus(): Promise<void> {

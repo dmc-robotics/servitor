@@ -175,9 +175,12 @@ export default defineComponent({
       // Restore selection from active connection
       this.selectedPort = this.port
       this.selectedBaudRate = String(this.baudRate)
-    } else if (this.sortedPorts.length > 0) {
-      // Pre-select first port (likely Arduino ports sorted to top)
-      this.selectedPort = this.sortedPorts[0].path
+    } else {
+      // Use store baud rate (set by project load) if available
+      this.selectedBaudRate = String(this.baudRate)
+      if (this.sortedPorts.length > 0) {
+        this.selectedPort = this.sortedPorts[0].path
+      }
     }
   }
 })

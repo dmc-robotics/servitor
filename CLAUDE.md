@@ -133,10 +133,10 @@ Components are installed to `src/renderer/components/ui/`.
 ## Development Commands
 
 ```zsh
-npm run dev      # Start dev server + launch Electron with hot-reload
-npm run build    # Build for production
-npm start        # Preview production build (alias for preview)
-npm run preview  # Preview production build
+npm run dev          # Start dev server + launch Electron with hot-reload
+npm run build:mac    # Build for production (Mac)
+npm start            # Preview production build (alias for preview)
+npm run preview      # Preview production build
 ```
 
 ## Routing

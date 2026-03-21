@@ -7,10 +7,10 @@
 export const LINE_DELIMITER = '\n'
 
 /** Default baud rate (Arduino standard) */
-export const DEFAULT_BAUD_RATE = 9600
+export const DEFAULT_BAUD_RATE = 115200
 
 /** Standard baud rates for serial devices */
-export const VALID_BAUD_RATES = [300, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200] as const
+export const VALID_BAUD_RATES = [300, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600, 1000000, 2000000] as const
 
 /** Type for valid baud rates */
 export type ValidBaudRate = (typeof VALID_BAUD_RATES)[number]

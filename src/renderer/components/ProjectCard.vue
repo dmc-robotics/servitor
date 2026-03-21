@@ -20,6 +20,7 @@ interface StatusBadgeConfig {
   label: string
   state: BadgeState
   reason: string
+  disabled?: boolean
 }
 
 export default defineComponent({
@@ -101,6 +102,7 @@ export default defineComponent({
     },
 
     portDisplay(): string {
+      if (this.isTeensyBoard) return '--'
       return this.project.grotConfig?.port || 'not set'
     },
 
@@ -140,12 +142,18 @@ export default defineComponent({
         {
           label: 'Port',
           state: this.portBadgeState,
-          reason: this.portBadgeReason
+          reason: this.portBadgeReason,
+          disabled: this.isTeensyBoard
         }
       ]
     },
 
+    isTeensyBoard(): boolean {
+      return (this.project.grotConfig?.fqbn ?? '').toLowerCase().startsWith('teensy:')
+    },
+
     portBadgeState(): BadgeState {
+      if (this.isTeensyBoard) return 'pending'
       if (!this.project.grotConfig?.port) return 'fail'
       if (!this.project.portAvailable) return 'fail'
       return 'ok'
@@ -267,7 +275,17 @@ export default defineComponent({
         <!-- Badge row -->
         <template v-else>
           <template v-for="badge in statusBadges" :key="badge.label">
-            <HoverCard v-if="badge.state === 'fail'" :open-delay="300">
+            <!-- Disabled badge (e.g. Port on Teensy — no port needed) -->
+            <ClickableBadge
+              v-if="badge.disabled"
+              variant="secondary"
+              class="gap-1 text-xs"
+              :disabled="true"
+            >
+              <CheckCircle2 class="h-3 w-3" />
+              {{ badge.label }}
+            </ClickableBadge>
+            <HoverCard v-else-if="badge.state === 'fail'" :open-delay="300">
               <HoverCardTrigger as-child>
                 <ClickableBadge
                   variant="danger"

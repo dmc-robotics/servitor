@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ProjectData, CommandOutput } from '../../shared/types/dashboard'
+import { useSerialStore } from './serial'
 
 /** Per-project operation state */
 interface ProjectOperationState {
@@ -227,6 +228,10 @@ export const useDashboardStore = defineStore('dashboard', {
         const result = await window.dashboardAPI.load(id)
         if (result.success && result.data) {
           this.appendOutput(title, 'load', result.data)
+          // Set the project's baud rate on the serial store so the Serial page defaults to it
+          if (project?.grotConfig?.baudRate) {
+            useSerialStore().setBaudRate(project.grotConfig.baudRate)
+          }
         } else {
           this.appendOutput(title, 'load', {
             exitCode: 1,
