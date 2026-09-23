@@ -2,38 +2,23 @@
 import { defineComponent } from 'vue'
 import { mapActions } from 'pinia'
 import { useDashboardStore } from '@/stores/dashboard'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  DialogTrigger
-} from '@/components/ui/dialog'
+import { Dialog } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { CirclePlus, FolderOpen } from 'lucide-vue-next'
+import Icon from '@/components/Icon.vue'
 
 export default defineComponent({
   name: 'AddProjectDialog',
 
   components: {
     Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogHeader,
-    DialogTitle,
-    DialogFooter,
-    DialogTrigger,
     Button,
     Input,
     Label,
     Textarea,
-    CirclePlus,
-    FolderOpen
+    Icon
   },
 
   data() {
@@ -103,19 +88,13 @@ export default defineComponent({
 </script>
 
 <template>
-  <Dialog :open="open" @update:open="handleOpenChange">
-    <DialogTrigger as-child>
-      <Button @click="open = true">
-        <CirclePlus class="h-4 w-4" />
-        Add Project
-      </Button>
-    </DialogTrigger>
-    <DialogContent class="sm:max-w-[480px]">
-      <DialogHeader>
-        <DialogTitle>Add Arduino Project</DialogTitle>
-        <DialogDescription class="sr-only">Add an Arduino project directory</DialogDescription>
-      </DialogHeader>
+  <div>
+    <Button @click="open = true">
+      <Icon name="CirclePlus" class="h-4 w-4" />
+      Add Project
+    </Button>
 
+    <Dialog :open="open" title="Add Arduino Project" @update:open="handleOpenChange">
       <div class="grid gap-4 py-4">
         <!-- Directory path -->
         <div class="grid gap-1.5">
@@ -125,10 +104,10 @@ export default defineComponent({
               id="project-path"
               v-model="path"
               placeholder="/path/to/project"
-              class="flex-1 font-mono text-sm"
+              class="flex-1 font-mono"
             />
             <Button variant="outline" size="icon" @click="handleBrowse" title="Browse">
-              <FolderOpen class="h-4 w-4" />
+              <Icon name="FolderOpen" class="h-4 w-4" />
             </Button>
           </div>
         </div>
@@ -158,12 +137,12 @@ export default defineComponent({
         <p v-if="error" class="text-sm text-destructive">{{ error }}</p>
       </div>
 
-      <DialogFooter>
+      <template #footer>
         <Button variant="outline" @click="handleOpenChange(false)">Cancel</Button>
         <Button @click="handleSubmit" :disabled="!canSubmit || submitting">
           {{ submitting ? 'Adding...' : 'Add Project' }}
         </Button>
-      </DialogFooter>
-    </DialogContent>
-  </Dialog>
+      </template>
+    </Dialog>
+  </div>
 </template>

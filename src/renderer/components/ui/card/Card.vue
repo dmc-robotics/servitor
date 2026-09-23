@@ -1,21 +1,17 @@
-<script setup lang="ts">
-import type { HTMLAttributes } from "vue"
-import { cn } from "@/lib/utils"
+<script lang="ts">
+import { defineComponent } from 'vue'
 
-const props = defineProps<{
-  class?: HTMLAttributes["class"]
-}>()
+/**
+ * Bordered surface for grouping content. Has no padding of its own —
+ * sections inside set their own (e.g. `<div class="px-6 py-3">`).
+ */
+export default defineComponent({
+  name: 'Card'
+})
 </script>
 
 <template>
-  <div
-    :class="
-      cn(
-        'rounded-lg border bg-card text-card-foreground shadow-sm',
-        props.class,
-      )
-    "
-  >
+  <div class="rounded-lg border bg-card text-card-foreground shadow-sm">
     <slot />
   </div>
 </template>

@@ -14,8 +14,7 @@ export default defineConfig({
     resolve: {
       alias: {
         '@': resolve('src/renderer')
-      },
-      dedupe: ['vue', 'pinia']
+      }
     },
     plugins: [vue(), tailwindcss()]
   }

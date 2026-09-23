@@ -3,46 +3,46 @@ import { defineComponent } from 'vue'
 import { mapState, mapActions } from 'pinia'
 import { useDashboardStore } from '@/stores/dashboard'
 import { ProjectData } from '../../shared/types/dashboard'
-import { Skeleton } from '@/components/ui/skeleton'
-import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable'
+import { SplitPane } from '@/components/ui/split-pane'
+import Icon from '@/components/Icon.vue'
 import ProjectCard from '@/components/ProjectCard.vue'
 import AddProjectDialog from '@/components/AddProjectDialog.vue'
 import EditProjectDialog from '@/components/EditProjectDialog.vue'
 import OutputPanel from '@/components/OutputPanel.vue'
-import { FolderOpen } from 'lucide-vue-next'
+
+/** Initial / minimum height (%) of the projects area; the output panel gets the rest */
+const PROJECTS_PANE_SIZE = 75
+const PROJECTS_PANE_MIN = 30
+const OUTPUT_PANE_MIN = 10
 
 export default defineComponent({
   name: 'Projects',
 
   components: {
-    Skeleton,
-    ResizablePanelGroup,
-    ResizablePanel,
-    ResizableHandle,
+    SplitPane,
+    Icon,
     ProjectCard,
     AddProjectDialog,
     EditProjectDialog,
-    OutputPanel,
-    FolderOpen
+    OutputPanel
   },
 
   data() {
     return {
+      PROJECTS_PANE_SIZE,
+      PROJECTS_PANE_MIN,
+      OUTPUT_PANE_MIN,
       editingProject: null as ProjectData | null,
       unsubscribeProjectChanged: null as (() => void) | null
     }
   },
 
   computed: {
-    ...mapState(useDashboardStore, ['projects', 'loading', 'portScanErrors', 'configValidation'])
+    ...mapState(useDashboardStore, ['projects', 'loading', 'portScanErrors', 'configValidation', 'getOperationState'])
   },
 
   methods: {
-    ...mapActions(useDashboardStore, ['loadProjects']),
-
-    operationState(id: string) {
-      return useDashboardStore().getOperationState(id)
-    },
+    ...mapActions(useDashboardStore, ['loadProjects', 'handleProjectChanged']),
 
     handleEdit(project: ProjectData): void {
       this.editingProject = project
@@ -56,9 +56,8 @@ export default defineComponent({
   async mounted() {
     await this.loadProjects()
 
-    const store = useDashboardStore()
     this.unsubscribeProjectChanged = window.dashboardAPI.onProjectChanged(
-      (projectId, data) => store.handleProjectChanged(projectId, data)
+      (projectId, data) => this.handleProjectChanged(projectId, data)
     )
   },
 
@@ -69,9 +68,13 @@ export default defineComponent({
 </script>
 
 <template>
-  <ResizablePanelGroup direction="vertical" class="h-full">
+  <SplitPane
+    :default-size="PROJECTS_PANE_SIZE"
+    :min-top="PROJECTS_PANE_MIN"
+    :min-bottom="OUTPUT_PANE_MIN"
+  >
     <!-- Projects area -->
-    <ResizablePanel :default-size="75" :min-size="30">
+    <template #top>
       <div class="h-full overflow-y-auto space-y-6 p-4">
         <!-- Header -->
         <div class="flex items-center justify-end">
@@ -80,7 +83,7 @@ export default defineComponent({
 
         <!-- Loading skeletons -->
         <div v-if="loading" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Skeleton v-for="n in 4" :key="n" class="h-48 rounded-lg" />
+          <div v-for="n in 4" :key="n" class="h-48 animate-pulse rounded-lg bg-muted" />
         </div>
 
         <!-- Empty state -->
@@ -88,7 +91,7 @@ export default defineComponent({
           v-else-if="projects.length === 0"
           class="flex flex-col items-center justify-center gap-4 py-24 text-muted-foreground"
         >
-          <FolderOpen class="h-12 w-12 opacity-40" />
+          <Icon name="FolderOpen" class="h-12 w-12 opacity-40" />
           <p class="text-lg">No projects yet</p>
           <p class="text-sm">Click "Add Project" to add an Arduino project directory.</p>
         </div>
@@ -99,27 +102,24 @@ export default defineComponent({
             v-for="project in projects"
             :key="project.config.id"
             :project="project"
-            :operation-state="operationState(project.config.id)"
+            :operation-state="getOperationState(project.config.id)"
             :port-scan-error="portScanErrors[project.config.id]"
             :config-valid="configValidation[project.config.id]?.valid"
             @edit="handleEdit"
           />
         </div>
       </div>
-    </ResizablePanel>
-
-    <!-- Drag handle -->
-    <ResizableHandle />
+    </template>
 
     <!-- Output panel -->
-    <ResizablePanel :default-size="25" :min-size="10">
+    <template #bottom>
       <OutputPanel />
-    </ResizablePanel>
+    </template>
+  </SplitPane>
 
-    <!-- Edit dialog (rendered outside panels to avoid layout issues) -->
-    <EditProjectDialog
-      :project="editingProject"
-      @close="handleEditClose"
-    />
-  </ResizablePanelGroup>
+  <!-- Native <dialog> renders in the top layer, so placement in the tree doesn't matter -->
+  <EditProjectDialog
+    :project="editingProject"
+    @close="handleEditClose"
+  />
 </template>

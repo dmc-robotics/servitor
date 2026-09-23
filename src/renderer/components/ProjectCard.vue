@@ -4,15 +4,10 @@ import { mapActions, mapState } from 'pinia'
 import { useDashboardStore } from '@/stores/dashboard'
 import { useSettingsStore } from '@/stores/settings'
 import { ProjectData } from '../../shared/types/dashboard'
-import { Card, CardContent, CardHeader } from '@/components/ui/card'
+import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import ClickableBadge from '@/components/ClickableBadge.vue'
-import { Separator } from '@/components/ui/separator'
-import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card'
-import {
-  Hammer, Upload, Pencil, Loader2,
-  CheckCircle2, XCircle, AlertTriangle
-} from 'lucide-vue-next'
+import Icon from '@/components/Icon.vue'
 
 type BadgeState = 'ok' | 'fail' | 'pending'
 
@@ -27,11 +22,7 @@ export default defineComponent({
   name: 'ProjectCard',
 
   components: {
-    Card, CardContent, CardHeader,
-    Button, ClickableBadge, Separator,
-    HoverCard, HoverCardContent, HoverCardTrigger,
-    Hammer, Upload, Pencil, Loader2,
-    CheckCircle2, XCircle, AlertTriangle
+    Card, Button, ClickableBadge, Icon
   },
 
   props: {
@@ -208,7 +199,7 @@ export default defineComponent({
 <template>
   <Card class="flex flex-col min-w-[280px]">
     <!-- Zone 1: Identity -->
-    <CardHeader class="pb-3">
+    <div class="flex flex-col gap-y-1.5 px-6 pt-6 pb-3">
       <div class="min-w-0">
         <div class="flex items-center gap-1">
           <h3 class="text-base font-semibold truncate">{{ project.config.title }}</h3>
@@ -220,7 +211,7 @@ export default defineComponent({
             :disabled="isAnyBusy"
             title="Edit project"
           >
-            <Pencil class="h-3.5 w-3.5" />
+            <Icon name="Pencil" class="h-3.5 w-3.5" />
           </Button>
         </div>
         <button
@@ -234,12 +225,12 @@ export default defineComponent({
       <p v-if="project.config.description" class="text-sm text-muted-foreground line-clamp-2 mt-1">
         {{ project.config.description }}
       </p>
-    </CardHeader>
+    </div>
 
-    <Separator />
+    <div class="border-t" />
 
     <!-- Zone 2: Config details + status badges -->
-    <CardContent class="flex-1 py-3 space-y-3">
+    <div class="flex-1 px-6 py-3 space-y-3">
       <div v-if="project.grotConfig" class="grid grid-cols-2 gap-x-6 gap-y-1 text-xs">
         <div class="min-w-0">
           <span class="text-muted-foreground">Board</span>
@@ -268,7 +259,7 @@ export default defineComponent({
 
         <!-- Directory not accessible: show warning instead of badges -->
         <template v-if="!project.directoryAccessible">
-          <AlertTriangle class="h-3.5 w-3.5 text-destructive shrink-0" />
+          <Icon name="TriangleAlert" class="h-3.5 w-3.5 text-destructive shrink-0" />
           <span class="text-xs text-destructive font-medium">Project files not found</span>
         </template>
 
@@ -279,49 +270,42 @@ export default defineComponent({
             <ClickableBadge
               v-if="badge.disabled"
               variant="secondary"
-              class="gap-1 text-xs"
               :disabled="true"
             >
-              <CheckCircle2 class="h-3 w-3" />
+              <Icon name="CircleCheck" class="h-3 w-3" />
               {{ badge.label }}
             </ClickableBadge>
-            <HoverCard v-else-if="badge.state === 'fail'" :open-delay="300">
-              <HoverCardTrigger as-child>
-                <ClickableBadge
-                  variant="danger"
-                  class="gap-1 text-xs"
-                  :disabled="badge.label === 'Port' && operationState.updatingPort"
-                  @click="handleBadgeClick(badge.label)"
-                >
-                  <Loader2 v-if="badge.label === 'Port' && operationState.updatingPort" class="h-3 w-3 animate-spin" />
-                  <XCircle v-else class="h-3 w-3" />
-                  {{ badge.label }}
-                </ClickableBadge>
-              </HoverCardTrigger>
-              <HoverCardContent class="w-64 text-xs">
-                {{ badge.reason }}
-              </HoverCardContent>
-            </HoverCard>
+            <!-- Failure reason shows as a native tooltip on hover -->
             <ClickableBadge
-              v-else
-              :variant="badge.state === 'pending' ? 'secondary' : 'success'"
-              class="gap-1 text-xs"
+              v-else-if="badge.state === 'fail'"
+              variant="danger"
+              :title="badge.reason"
               :disabled="badge.label === 'Port' && operationState.updatingPort"
               @click="handleBadgeClick(badge.label)"
             >
-              <Loader2 v-if="badge.label === 'Port' && operationState.updatingPort" class="h-3 w-3 animate-spin" />
-              <CheckCircle2 v-else class="h-3 w-3" />
+              <Icon v-if="badge.label === 'Port' && operationState.updatingPort" name="LoaderCircle" class="h-3 w-3 animate-spin" />
+              <Icon v-else name="CircleX" class="h-3 w-3" />
+              {{ badge.label }}
+            </ClickableBadge>
+            <ClickableBadge
+              v-else
+              :variant="badge.state === 'pending' ? 'secondary' : 'success'"
+              :disabled="badge.label === 'Port' && operationState.updatingPort"
+              @click="handleBadgeClick(badge.label)"
+            >
+              <Icon v-if="badge.label === 'Port' && operationState.updatingPort" name="LoaderCircle" class="h-3 w-3 animate-spin" />
+              <Icon v-else name="CircleCheck" class="h-3 w-3" />
               {{ badge.label }}
             </ClickableBadge>
           </template>
         </template>
       </div>
-    </CardContent>
+    </div>
 
-    <Separator />
+    <div class="border-t" />
 
     <!-- Zone 3: Actions -->
-    <CardContent class="py-3">
+    <div class="px-6 py-3">
       <div class="flex items-center gap-2">
         <Button
           size="sm"
@@ -330,8 +314,8 @@ export default defineComponent({
           @click="handleBuild"
           title="Build with grot"
         >
-          <Loader2 v-if="operationState.building" class="h-4 w-4 mr-1.5 animate-spin" />
-          <Hammer v-else class="h-4 w-4 mr-1.5" />
+          <Icon v-if="operationState.building" name="LoaderCircle" class="h-4 w-4 mr-1.5 animate-spin" />
+          <Icon v-else name="Hammer" class="h-4 w-4 mr-1.5" />
           Build
         </Button>
 
@@ -342,12 +326,12 @@ export default defineComponent({
           @click="handleLoad"
           title="Load onto board with grot"
         >
-          <Loader2 v-if="operationState.loading" class="h-4 w-4 mr-1.5 animate-spin" />
-          <Upload v-else class="h-4 w-4 mr-1.5" />
+          <Icon v-if="operationState.loading" name="LoaderCircle" class="h-4 w-4 mr-1.5 animate-spin" />
+          <Icon v-else name="Upload" class="h-4 w-4 mr-1.5" />
           Load
         </Button>
 
       </div>
-    </CardContent>
+    </div>
   </Card>
 </template>

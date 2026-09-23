@@ -2,67 +2,48 @@
 import { defineComponent } from 'vue'
 import { mapState, mapActions } from 'pinia'
 import { useSerialStore } from '@/stores/serial'
-import { Card, CardContent } from '@/components/ui/card'
+import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '@/components/ui/select'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Select, type SelectOption } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogDescription
-} from '@/components/ui/dialog'
+import { Dialog } from '@/components/ui/dialog'
+import Icon from '@/components/Icon.vue'
 import SerialMonitor from '@/components/SerialMonitor.vue'
 import SerialPlotter from '@/components/SerialPlotter.vue'
 import { VALID_BAUD_RATES, DEFAULT_BAUD_RATE } from '../../shared/types/serial'
-import { RefreshCw, Trash2, ArrowUp, Save, CircleHelp } from 'lucide-vue-next'
+
+type SerialTab = 'monitor' | 'plotter'
+
+const TABS: { value: SerialTab; label: string }[] = [
+  { value: 'monitor', label: 'Monitor' },
+  { value: 'plotter', label: 'Plotter' }
+]
 
 export default defineComponent({
   name: 'Serial',
   components: {
     Card,
-    CardContent,
     Button,
     Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-    Tabs,
-    TabsContent,
-    TabsList,
-    TabsTrigger,
     SerialMonitor,
     SerialPlotter,
     Textarea,
     Switch,
     Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
-    DialogDescription,
-    RefreshCw,
-    Trash2,
-    ArrowUp,
-    Save,
-    CircleHelp
+    Icon
   },
   data() {
     return {
       selectedPort: '',
       selectedBaudRate: String(DEFAULT_BAUD_RATE),
-      baudRates: [...VALID_BAUD_RATES],
+      baudRateOptions: VALID_BAUD_RATES.map((rate) => ({
+        value: String(rate),
+        label: `${rate} baud`
+      })) as SelectOption[],
+      tabs: TABS,
+      activeTab: 'monitor' as SerialTab,
+      helpOpen: false,
       inputText: '',
       showRaw: false,
       isToggling: false,
@@ -100,10 +81,17 @@ export default defineComponent({
         const bLikely = isLikelyArduino(b) ? 0 : 1
         return aLikely - bLikely
       })
+    },
+
+    portOptions(): SelectOption[] {
+      return this.sortedPorts.map((port) => ({
+        value: port.path,
+        label: port.manufacturer ? `${port.path} - ${port.manufacturer}` : port.path
+      }))
     }
   },
   methods: {
-    ...mapActions(useSerialStore, ['loadPorts', 'connect', 'disconnect', 'clearData', 'send']),
+    ...mapActions(useSerialStore, ['loadPorts', 'connect', 'disconnect', 'clearData', 'send', 'updateStatus']),
 
     async handleConnect(): Promise<void> {
       if (!this.selectedPort || this.isToggling) {
@@ -166,8 +154,7 @@ export default defineComponent({
   },
   async mounted() {
     // Sync connection status from main process (handles app reload while connected)
-    const store = useSerialStore()
-    await store.updateStatus()
+    await this.updateStatus()
 
     await this.loadPorts()
 
@@ -190,7 +177,7 @@ export default defineComponent({
   <div class="flex flex-col gap-4 h-full p-4">
     <!-- Connection Controls -->
     <Card>
-      <CardContent class="px-4 py-3">
+      <div class="px-4 py-3">
         <div class="flex items-center gap-2">
           <!-- Refresh button -->
           <Button
@@ -199,43 +186,25 @@ export default defineComponent({
             :disabled="connected"
             class="shrink-0"
           >
-            <RefreshCw class="h-4 w-4" />
+            <Icon name="RefreshCw" class="h-4 w-4" />
           </Button>
 
           <!-- Port selector -->
-          <Select v-model="selectedPort" :disabled="connected" class="flex-1">
-            <SelectTrigger>
-              <SelectValue placeholder="Select a port" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem
-                v-for="port in sortedPorts"
-                :key="port.path"
-                :value="port.path"
-              >
-                {{ port.path }}
-                <span v-if="port.manufacturer" class="text-muted-foreground">
-                  - {{ port.manufacturer }}
-                </span>
-              </SelectItem>
-            </SelectContent>
-          </Select>
+          <Select
+            v-model="selectedPort"
+            :options="portOptions"
+            placeholder="Select a port"
+            :disabled="connected"
+            class="flex-1"
+          />
 
           <!-- Baud rate selector -->
-          <Select v-model="selectedBaudRate" :disabled="connected" class="w-36">
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem
-                v-for="rate in baudRates"
-                :key="rate"
-                :value="String(rate)"
-              >
-                {{ rate }} baud
-              </SelectItem>
-            </SelectContent>
-          </Select>
+          <Select
+            v-model="selectedBaudRate"
+            :options="baudRateOptions"
+            :disabled="connected"
+            class="w-36"
+          />
 
           <!-- Connection toggle -->
           <Button
@@ -248,35 +217,45 @@ export default defineComponent({
           </Button>
         </div>
         <p v-if="connectionError" class="text-sm text-destructive mt-2">{{ connectionError }}</p>
-      </CardContent>
+      </div>
     </Card>
 
     <!-- Monitor/Plotter Tabs -->
     <Card class="flex-1 flex flex-col min-h-0">
-      <CardContent class="p-6 flex-1 flex flex-col min-h-0">
-        <Tabs default-value="monitor" class="flex-1 flex flex-col min-h-0">
+      <div class="p-6 flex-1 flex flex-col min-h-0">
+        <div class="flex-1 flex flex-col gap-2 min-h-0">
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-4">
-              <TabsList class="grid grid-cols-2 max-w-[400px]">
-                <TabsTrigger value="monitor">Monitor</TabsTrigger>
-                <TabsTrigger value="plotter">Plotter</TabsTrigger>
-              </TabsList>
+              <!-- Tabs: the inactive view is unmounted (v-if below) -->
+              <div class="inline-flex h-9 items-center rounded-lg bg-muted p-[3px] text-muted-foreground" role="tablist">
+                <button
+                  v-for="tab in tabs"
+                  :key="tab.value"
+                  type="button"
+                  role="tab"
+                  :aria-selected="activeTab === tab.value"
+                  class="h-full w-24 rounded-md px-2 text-sm font-medium transition-colors"
+                  :class="activeTab === tab.value ? 'bg-background text-foreground shadow-sm' : 'hover:text-foreground'"
+                  @click="activeTab = tab.value"
+                >
+                  {{ tab.label }}
+                </button>
+              </div>
               <div class="flex items-center gap-2">
                 <Switch v-model="showRaw" />
                 <span class="text-xs text-muted-foreground">Raw</span>
-                <Dialog>
-                  <DialogTrigger as-child>
-                    <button class="rounded-full text-primary hover:opacity-70 transition-opacity focus:outline-none">
-                      <CircleHelp class="h-5 w-5" :stroke-width="2" />
-                    </button>
-                  </DialogTrigger>
-                  <DialogContent class="max-w-lg">
-                    <DialogHeader>
-                      <DialogTitle>Serial Data Protocol</DialogTitle>
-                      <DialogDescription>
-                        How to format data sent from your Arduino over serial.
-                      </DialogDescription>
-                    </DialogHeader>
+                <button
+                  class="rounded-full text-primary hover:opacity-70 transition-opacity focus:outline-none"
+                  title="Serial data protocol"
+                  @click="helpOpen = true"
+                >
+                  <Icon name="CircleHelp" class="h-5 w-5" />
+                </button>
+                <Dialog
+                  v-model:open="helpOpen"
+                  title="Serial Data Protocol"
+                  description="How to format data sent from your Arduino over serial."
+                >
                     <div class="space-y-4 text-sm">
                       <section>
                         <h3 class="font-semibold mb-1">Key/Value Pairs</h3>
@@ -322,7 +301,6 @@ void loop() {
                         <p class="text-muted-foreground">Enable <span class="font-mono">Raw</span> to see all bytes as received, bypassing parsing.</p>
                       </section>
                     </div>
-                  </DialogContent>
                 </Dialog>
               </div>
             </div>
@@ -332,23 +310,21 @@ void loop() {
                 size="icon"
                 :disabled="messages.length === 0"
               >
-                <Save class="h-4 w-4" />
+                <Icon name="Save" class="h-4 w-4" />
               </Button>
               <Button
                 @click="clearData"
                 size="icon"
               >
-                <Trash2 class="h-4 w-4" />
+                <Icon name="Trash2" class="h-4 w-4" />
               </Button>
             </div>
           </div>
-          <TabsContent value="monitor" class="flex-1 min-h-0 flex flex-col">
-            <SerialMonitor :show-raw="showRaw" />
-          </TabsContent>
-          <TabsContent value="plotter" class="flex-1 min-h-0 flex flex-col">
-            <SerialPlotter />
-          </TabsContent>
-        </Tabs>
+          <div class="flex-1 min-h-0 flex flex-col">
+            <SerialMonitor v-if="activeTab === 'monitor'" :show-raw="showRaw" />
+            <SerialPlotter v-else />
+          </div>
+        </div>
 
         <!-- Send command - always visible regardless of active tab -->
         <div class="shrink-0 mt-4">
@@ -364,14 +340,14 @@ void loop() {
             <Button
               @click="sendMessage"
               :disabled="!connected || !inputText.trim()"
-              size="icon"
-              class="absolute bottom-2 right-2 h-7 w-7"
+              size="icon-sm"
+              class="absolute bottom-2 right-2"
             >
-              <ArrowUp :stroke-width="3" class="h-5 w-5" />
+              <Icon name="ArrowUp" :stroke-width="3" class="h-5 w-5" />
             </Button>
           </div>
         </div>
-      </CardContent>
+      </div>
     </Card>
   </div>
 </template>

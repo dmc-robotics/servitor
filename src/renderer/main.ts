@@ -1,6 +1,7 @@
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
-import { useThemeStore } from 'theminator'
+import { useThemeStore } from './stores/theme'
+import './styles/themes.css'
 import './assets/main.css'
 import App from './App.vue'
 import router from './router'
@@ -14,7 +15,7 @@ app.use(pinia)
 // Install router
 app.use(router)
 
-// Initialize theminator AFTER Pinia is installed
+// Apply saved theme preferences AFTER Pinia is installed
 useThemeStore().initialize()
 
 app.mount('#app')

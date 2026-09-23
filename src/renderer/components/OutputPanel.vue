@@ -4,9 +4,7 @@ import { mapState, mapActions } from 'pinia'
 import { useDashboardStore, OutputLogEntry } from '@/stores/dashboard'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Separator } from '@/components/ui/separator'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import { Trash2, Terminal, ArrowUp, ArrowDown } from 'lucide-vue-next'
+import Icon from '@/components/Icon.vue'
 import { ansiToHtml } from '@/utils/grot-colorizer'
 
 export default defineComponent({
@@ -15,12 +13,7 @@ export default defineComponent({
   components: {
     Button,
     Badge,
-    Separator,
-    ScrollArea,
-    Trash2,
-    Terminal,
-    ArrowUp,
-    ArrowDown
+    Icon
   },
 
   data() {
@@ -110,9 +103,9 @@ export default defineComponent({
     <!-- Panel header -->
     <div class="flex items-center justify-between px-4 py-2 border-t bg-background shrink-0">
       <div class="flex items-center gap-2">
-        <Terminal class="h-4 w-4 text-muted-foreground" />
+        <Icon name="Terminal" class="h-4 w-4 text-muted-foreground" />
         <span class="text-sm font-medium">Output</span>
-        <Badge v-if="hasOutput" variant="secondary" class="text-[10px] px-1.5 py-0">
+        <Badge v-if="hasOutput" variant="secondary" size="sm">
           {{ outputLog.length }}
         </Badge>
       </div>
@@ -125,7 +118,7 @@ export default defineComponent({
           @click="navigateUp"
           title="Previous entry"
         >
-          <ArrowUp class="h-3.5 w-3.5" />
+          <Icon name="ArrowUp" class="h-3.5 w-3.5" />
         </Button>
         <Button
           v-if="hasOutput"
@@ -135,7 +128,7 @@ export default defineComponent({
           @click="navigateDown"
           title="Next entry"
         >
-          <ArrowDown class="h-3.5 w-3.5" />
+          <Icon name="ArrowDown" class="h-3.5 w-3.5" />
         </Button>
         <Button
           v-if="hasOutput"
@@ -144,27 +137,28 @@ export default defineComponent({
           @click="clearOutput"
           title="Clear output"
         >
-          <Trash2 class="h-3.5 w-3.5" />
+          <Icon name="Trash2" class="h-3.5 w-3.5" />
         </Button>
       </div>
     </div>
 
     <!-- Output content -->
-    <ScrollArea class="flex-1">
+    <div class="min-h-0 flex-1 overflow-y-auto">
       <div class="p-4">
         <div v-if="!hasOutput" class="text-muted-foreground italic text-sm">
           No output yet. Run a build or load command.
         </div>
 
         <div v-for="(entry, index) in outputLog" :key="entry.id" :ref="`entry-${index}`">
-          <Separator v-if="index > 0" class="my-3" />
+          <div v-if="index > 0" class="my-3 border-t" />
 
           <div class="space-y-2">
             <!-- Entry header -->
             <div class="flex items-center gap-2 text-xs text-muted-foreground">
               <Badge
                 :variant="isSuccess(entry) ? 'secondary' : 'danger'"
-                class="uppercase text-[10px] px-1.5 py-0"
+                size="sm"
+                class="uppercase"
               >
                 {{ entry.command }}
               </Badge>
@@ -172,7 +166,7 @@ export default defineComponent({
               <span>{{ formatTimestamp(entry.timestamp) }}</span>
               <Badge
                 :variant="isSuccess(entry) ? 'outline' : 'danger'"
-                class="text-[10px] px-1.5 py-0"
+                size="sm"
               >
                 exit {{ entry.output.exitCode }}
               </Badge>
@@ -194,6 +188,6 @@ export default defineComponent({
           </div>
         </div>
       </div>
-    </ScrollArea>
+    </div>
   </div>
 </template>

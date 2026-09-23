@@ -1,5 +1,4 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import { electronAPI } from '@electron-toolkit/preload'
 import { AppResult } from '../shared/types/app-result'
 import {
   PortInfo,
@@ -112,7 +111,6 @@ const dashboardAPI: DashboardAPI = {
 // just add to the DOM global.
 if (process.contextIsolated) {
   try {
-    contextBridge.exposeInMainWorld('electron', electronAPI)
     contextBridge.exposeInMainWorld('serialAPI', serialAPI)
     contextBridge.exposeInMainWorld('dashboardAPI', dashboardAPI)
     contextBridge.exposeInMainWorld('appAPI', appAPI)
@@ -120,8 +118,6 @@ if (process.contextIsolated) {
     console.error(error)
   }
 } else {
-  // @ts-ignore (define in dts)
-  window.electron = electronAPI
   // @ts-ignore (define in dts)
   window.serialAPI = serialAPI
   // @ts-ignore (define in dts)

@@ -1,119 +1,34 @@
-<template>
-  <SidebarProvider>
-    <Sidebar collapsible="icon">
-      <SidebarHeader>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton size="lg">
-              <div class="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                <span class="text-xl font-bold">S</span>
-              </div>
-              <div class="grid flex-1 text-left text-sm leading-tight">
-                <span class="truncate font-semibold">Servitor</span>
-              </div>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarHeader>
-      <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>Application</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton as-child>
-                  <router-link to="/projects">
-                    <Blocks />
-                    <span>Projects</span>
-                  </router-link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton as-child>
-                  <router-link to="/serial">
-                    <Cable />
-                    <span>Serial Monitor</span>
-                  </router-link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton as-child>
-                  <router-link to="/settings">
-                    <Settings />
-                    <span>Settings</span>
-                  </router-link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-      </SidebarContent>
-      <SidebarFooter />
-      <SidebarRail />
-    </Sidebar>
-    <SidebarInset class="flex flex-col h-screen">
-      <header class="sticky top-0 z-10 flex h-16 shrink-0 items-center gap-2 border-b bg-background px-4">
-        <SidebarTrigger />
-        <div class="flex flex-1 items-center justify-between">
-          <h2 class="text-lg font-semibold">{{ pageTitle }}</h2>
-          <div class="flex items-center gap-2">
-            <div
-              class="w-4 h-4 rounded-full"
-              :class="connected ? 'bg-green-500' : 'bg-muted-foreground/50'"
-              :title="connected ? 'Serial connected' : 'Not connected'"
-            />
-          </div>
-        </div>
-      </header>
-      <div class="flex flex-1 flex-col gap-4 min-h-0">
-        <router-view />
-      </div>
-    </SidebarInset>
-  </SidebarProvider>
-</template>
-
 <script lang="ts">
 import { defineComponent } from 'vue'
 import { mapState } from 'pinia'
+import Icon from '@/components/Icon.vue'
+import AppSidebar from '@/components/AppSidebar.vue'
+import { Button } from '@/components/ui/button'
+import { STORAGE_KEYS } from '@/constants/storage'
 import { useSerialStore } from '@/stores/serial'
-import { Blocks, Cable, Settings } from 'lucide-vue-next'
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarFooter,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarHeader,
-  SidebarInset,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarProvider,
-  SidebarRail,
-  SidebarTrigger
-} from '@/components/ui/sidebar'
+
+/** Ctrl/Cmd + this key toggles the sidebar */
+const SIDEBAR_KEYBOARD_SHORTCUT = 'b'
+
+function loadSidebarCollapsed(): boolean {
+  try {
+    return localStorage.getItem(STORAGE_KEYS.SIDEBAR_COLLAPSED) === 'true'
+  } catch {
+    return false
+  }
+}
 
 export default defineComponent({
   name: 'Layout',
   components: {
-    Blocks,
-    Cable,
-    Settings,
-    Sidebar,
-    SidebarContent,
-    SidebarFooter,
-    SidebarGroup,
-    SidebarGroupContent,
-    SidebarGroupLabel,
-    SidebarHeader,
-    SidebarInset,
-    SidebarMenu,
-    SidebarMenuButton,
-    SidebarMenuItem,
-    SidebarProvider,
-    SidebarRail,
-    SidebarTrigger
+    Icon,
+    AppSidebar,
+    Button
+  },
+  data() {
+    return {
+      sidebarCollapsed: loadSidebarCollapsed()
+    }
   },
   computed: {
     ...mapState(useSerialStore, ['connected']),
@@ -121,6 +36,51 @@ export default defineComponent({
     pageTitle(): string {
       return (this.$route.meta?.title as string) || 'Servitor'
     }
+  },
+  mounted() {
+    window.addEventListener('keydown', this.handleKeyDown)
+  },
+  beforeUnmount() {
+    window.removeEventListener('keydown', this.handleKeyDown)
+  },
+  methods: {
+    toggleSidebar(): void {
+      this.sidebarCollapsed = !this.sidebarCollapsed
+      try {
+        localStorage.setItem(STORAGE_KEYS.SIDEBAR_COLLAPSED, String(this.sidebarCollapsed))
+      } catch { /* ignore */ }
+    },
+    handleKeyDown(event: KeyboardEvent): void {
+      if (event.key === SIDEBAR_KEYBOARD_SHORTCUT && (event.metaKey || event.ctrlKey)) {
+        event.preventDefault()
+        this.toggleSidebar()
+      }
+    }
   }
 })
 </script>
+
+<template>
+  <div class="flex h-svh w-full">
+    <AppSidebar :collapsed="sidebarCollapsed" />
+    <main class="flex h-svh min-w-0 flex-1 flex-col bg-background">
+      <header class="sticky top-0 z-10 flex h-16 shrink-0 items-center gap-2 border-b bg-background px-4">
+        <Button variant="ghost" size="icon-sm" title="Toggle sidebar (Ctrl/Cmd+B)" @click="toggleSidebar">
+          <Icon name="PanelLeft" />
+          <span class="sr-only">Toggle sidebar</span>
+        </Button>
+        <div class="flex flex-1 items-center justify-between">
+          <h2 class="text-lg font-semibold">{{ pageTitle }}</h2>
+          <div
+            class="w-4 h-4 rounded-full"
+            :class="connected ? 'bg-success' : 'bg-muted-foreground/50'"
+            :title="connected ? 'Serial connected' : 'Not connected'"
+          />
+        </div>
+      </header>
+      <div class="flex flex-1 flex-col gap-4 min-h-0">
+        <router-view />
+      </div>
+    </main>
+  </div>
+</template>

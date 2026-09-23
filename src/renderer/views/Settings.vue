@@ -2,28 +2,30 @@
 import { defineComponent } from 'vue'
 import { mapState, mapActions } from 'pinia'
 import { Switch } from '@/components/ui/switch'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '@/components/ui/select'
-import { useThemeStore } from 'theminator'
+import { Select, type SelectOption } from '@/components/ui/select'
+import { useThemeStore } from '@/stores/theme'
 import { useSettingsStore } from '@/stores/settings'
+
+const TERMINAL_OPTIONS: SelectOption[] = [
+  { value: 'terminal', label: 'Terminal' },
+  { value: 'alacritty', label: 'Alacritty' }
+]
+
+const EDITOR_OPTIONS: SelectOption[] = [
+  { value: 'textedit', label: 'TextEdit' },
+  { value: 'sublime', label: 'Sublime Text' }
+]
 
 export default defineComponent({
   name: 'Settings',
   components: {
     Switch,
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue
+    Select
   },
   data() {
     return {
+      terminalOptions: TERMINAL_OPTIONS,
+      editorOptions: EDITOR_OPTIONS,
       versions: { servitor: '...', grot: '...' }
     }
   },
@@ -34,6 +36,10 @@ export default defineComponent({
   computed: {
     ...mapState(useThemeStore, ['darkMode', 'selectedTheme', 'availableThemes']),
     ...mapState(useSettingsStore, ['terminalApp', 'editorApp']),
+
+    themeOptions(): SelectOption[] {
+      return this.availableThemes.map((theme) => ({ value: theme.name, label: theme.label }))
+    },
 
     // Two-way computed properties for v-model
     darkModeModel: {
@@ -90,17 +96,7 @@ export default defineComponent({
               <label class="text-sm font-medium">Terminal App</label>
               <p class="text-sm text-muted-foreground">Choose which terminal opens when clicking a project path</p>
             </div>
-            <div class="w-48">
-              <Select v-model="terminalAppModel">
-                <SelectTrigger>
-                  <SelectValue placeholder="Select terminal" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="terminal">Terminal</SelectItem>
-                  <SelectItem value="alacritty">Alacritty</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            <Select v-model="terminalAppModel" :options="terminalOptions" class="w-48" />
           </div>
 
           <div class="flex items-center justify-between">
@@ -108,17 +104,7 @@ export default defineComponent({
               <label class="text-sm font-medium">Editor App</label>
               <p class="text-sm text-muted-foreground">Choose which editor opens config and sketch files</p>
             </div>
-            <div class="w-48">
-              <Select v-model="editorAppModel">
-                <SelectTrigger>
-                  <SelectValue placeholder="Select editor" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="textedit">TextEdit</SelectItem>
-                  <SelectItem value="sublime">Sublime Text</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            <Select v-model="editorAppModel" :options="editorOptions" class="w-48" />
           </div>
         </div>
       </div>
@@ -132,18 +118,7 @@ export default defineComponent({
               <label class="text-sm font-medium">Theme</label>
               <p class="text-sm text-muted-foreground">Select your color theme</p>
             </div>
-            <div class="w-48">
-              <Select v-model="selectedThemeModel">
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a theme" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem v-for="theme in availableThemes" :key="theme.name" :value="theme.name">
-                    {{ theme.label }}
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            <Select v-model="selectedThemeModel" :options="themeOptions" class="w-48" />
           </div>
 
           <div class="flex items-center justify-between">

@@ -3,55 +3,23 @@ import { defineComponent, PropType } from 'vue'
 import { mapActions } from 'pinia'
 import { useDashboardStore } from '@/stores/dashboard'
 import { ProjectData } from '../../shared/types/dashboard'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter
-} from '@/components/ui/dialog'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger
-} from '@/components/ui/alert-dialog'
+import { Dialog } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Trash2 } from 'lucide-vue-next'
+import Icon from '@/components/Icon.vue'
 
 export default defineComponent({
   name: 'EditProjectDialog',
 
   components: {
     Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogHeader,
-    DialogTitle,
-    DialogFooter,
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
     Button,
     Input,
     Label,
     Textarea,
-    Trash2
+    Icon
   },
 
   props: {
@@ -69,6 +37,7 @@ export default defineComponent({
       description: '',
       submitting: false,
       removing: false,
+      confirmRemoveOpen: false,
       error: ''
     }
   },
@@ -124,6 +93,7 @@ export default defineComponent({
     async handleRemove(): Promise<void> {
       if (!this.project || this.removing) return
 
+      this.confirmRemoveOpen = false
       this.removing = true
       try {
         const success = await this.removeProject(this.project.config.id)
@@ -141,79 +111,63 @@ export default defineComponent({
 </script>
 
 <template>
-  <Dialog :open="open" @update:open="(val) => !val && handleClose()">
-    <DialogContent class="sm:max-w-[480px]">
-      <DialogHeader>
-        <DialogTitle>Edit Project</DialogTitle>
-        <DialogDescription class="sr-only">Edit project title and description</DialogDescription>
-      </DialogHeader>
-
-      <div class="grid gap-4 py-4">
-        <!-- Path (read-only) -->
-        <div class="grid gap-1.5">
-          <Label class="text-muted-foreground">Directory</Label>
-          <p class="text-sm font-mono text-muted-foreground truncate">
-            {{ project?.config.path }}
-          </p>
-        </div>
-
-        <!-- Title -->
-        <div class="grid gap-1.5">
-          <Label for="edit-title">Name</Label>
-          <Input id="edit-title" v-model="title" placeholder="My Arduino Project" />
-        </div>
-
-        <!-- Description -->
-        <div class="grid gap-1.5">
-          <Label for="edit-description">Description <span class="text-muted-foreground">(optional)</span></Label>
-          <Textarea
-            id="edit-description"
-            v-model="description"
-            placeholder="What does this project do?"
-            rows="2"
-          />
-        </div>
-
-        <p v-if="error" class="text-sm text-destructive">{{ error }}</p>
+  <Dialog :open="open" title="Edit Project" @update:open="(val) => !val && handleClose()">
+    <div class="grid gap-4 py-4">
+      <!-- Path (read-only) -->
+      <div class="grid gap-1.5">
+        <Label class="text-muted-foreground">Directory</Label>
+        <p class="text-sm font-mono text-muted-foreground truncate">
+          {{ project?.config.path }}
+        </p>
       </div>
 
-      <DialogFooter class="sm:justify-between">
-        <AlertDialog>
-          <AlertDialogTrigger as-child>
-            <Button
-              variant="ghost"
-              class="text-destructive hover:text-destructive"
-              :disabled="removing || submitting"
-            >
-              <Trash2 class="h-4 w-4 mr-1.5" />
-              {{ removing ? 'Removing...' : 'Remove' }}
-            </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Remove project?</AlertDialogTitle>
-              <AlertDialogDescription>
-                This will remove "{{ project?.config.title }}" from the list. Files on disk will not be deleted.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction
-                class="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                @click="handleRemove"
-              >
-                Remove
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-        <div class="flex gap-2">
-          <Button variant="outline" @click="handleClose">Cancel</Button>
-          <Button @click="handleSubmit" :disabled="!canSubmit || submitting">
-            {{ submitting ? 'Saving...' : 'Save' }}
-          </Button>
-        </div>
-      </DialogFooter>
-    </DialogContent>
+      <!-- Title -->
+      <div class="grid gap-1.5">
+        <Label for="edit-title">Name</Label>
+        <Input id="edit-title" v-model="title" placeholder="My Arduino Project" />
+      </div>
+
+      <!-- Description -->
+      <div class="grid gap-1.5">
+        <Label for="edit-description">Description <span class="text-muted-foreground">(optional)</span></Label>
+        <Textarea
+          id="edit-description"
+          v-model="description"
+          placeholder="What does this project do?"
+          rows="2"
+        />
+      </div>
+
+      <p v-if="error" class="text-sm text-destructive">{{ error }}</p>
+    </div>
+
+    <template #footer>
+      <!-- mr-auto pushes Remove left, Cancel/Save right. `!` overrides the ghost variant's hover color -->
+      <Button
+        variant="ghost"
+        class="mr-auto text-destructive hover:text-destructive!"
+        :disabled="removing || submitting"
+        @click="confirmRemoveOpen = true"
+      >
+        <Icon name="Trash2" class="h-4 w-4 mr-1.5" />
+        {{ removing ? 'Removing...' : 'Remove' }}
+      </Button>
+      <Button variant="outline" @click="handleClose">Cancel</Button>
+      <Button @click="handleSubmit" :disabled="!canSubmit || submitting">
+        {{ submitting ? 'Saving...' : 'Save' }}
+      </Button>
+    </template>
+
+    <!-- Remove confirmation (nested native dialog stacks above this one) -->
+    <Dialog
+      v-model:open="confirmRemoveOpen"
+      title="Remove project?"
+      :description="`This will remove &quot;${project?.config.title}&quot; from the list. Files on disk will not be deleted.`"
+    >
+      <template #footer>
+        <Button variant="outline" @click="confirmRemoveOpen = false">Cancel</Button>
+        <Button variant="destructive" @click="handleRemove">Remove</Button>
+      </template>
+    </Dialog>
   </Dialog>
 </template>

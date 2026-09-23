@@ -21,9 +21,9 @@ export default defineComponent({
         case 'error':
           return 'text-destructive'
         case 'warn':
-          return 'text-yellow-600 dark:text-yellow-500'
+          return 'text-warning'
         case 'info':
-          return 'text-blue-600 dark:text-blue-400'
+          return 'text-primary'
         case 'debug':
           return 'text-muted-foreground'
         case 'data':

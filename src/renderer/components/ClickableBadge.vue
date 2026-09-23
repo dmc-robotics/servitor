@@ -1,37 +1,36 @@
 <script lang="ts">
 import { defineComponent, PropType } from 'vue'
-import type { HTMLAttributes } from 'vue'
-import type { BadgeVariants } from '@/components/ui/badge'
-import { badgeVariants } from '@/components/ui/badge'
-import { cn } from '@/lib/utils'
+import {
+  BADGE_BASE_CLASSES,
+  BADGE_VARIANT_CLASSES,
+  BADGE_SIZE_CLASSES,
+  type BadgeVariant
+} from '@/components/ui/badge'
 
 export default defineComponent({
   name: 'ClickableBadge',
 
   props: {
     variant: {
-      type: String as PropType<BadgeVariants['variant']>,
+      type: String as PropType<BadgeVariant>,
       default: 'default'
     },
     disabled: {
       type: Boolean,
       default: false
-    },
-    class: {
-      type: String as PropType<HTMLAttributes['class']>,
-      default: undefined
     }
   },
 
   emits: ['click'],
 
   computed: {
-    classes(): string {
-      return cn(
-        badgeVariants({ variant: this.variant }),
-        this.disabled ? 'cursor-default opacity-60' : 'cursor-pointer active:scale-95',
-        this.class
-      )
+    classes(): string[] {
+      return [
+        BADGE_BASE_CLASSES,
+        BADGE_VARIANT_CLASSES[this.variant],
+        BADGE_SIZE_CLASSES.default,
+        this.disabled ? 'cursor-default opacity-60' : 'cursor-pointer active:scale-95'
+      ]
     }
   }
 })
